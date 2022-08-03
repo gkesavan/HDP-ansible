@@ -1,0 +1,42 @@
+---
+- name: stop all the services via ssl
+  local_action: command /bin/bash -x "{{stop_all_sh}}" {{SARGS}}
+  run_once: true
+  ignore_errors: true
+  tags: start
+
+- name: use SSL for HDFS
+  shell: /root/enable-ssl.sh {{SINGL}} --hadoopSSL 2>&1 | tee /var/log/enable-hdfs-ssl.log
+  args:
+    chdir: /tmp
+  when: inventory_hostname in groups['ambari_server']
+
+- name: use SSL for Hive
+  shell: /root/enable-ssl.sh {{SINGL}} --hiveSSL 2>&1 | tee /var/log/enable-hive-ssl.log
+  args:
+    chdir: /tmp
+  when: inventory_hostname in groups['ambari_server'] and groups['hiveserver2'] is defined and groups['hiveserver2']|length > 0
+
+- name: use SSL for HBase
+  shell: /root/enable-ssl.sh {{SINGL}} --hbaseSSL 2>&1 | tee /var/log/enable-hbase-ssl.log
+  args:
+    chdir: /tmp
+  when: inventory_hostname in groups['ambari_server'] and groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0
+
+- name: use SSL for Oozie
+  shell: /root/enable-ssl.sh {{SINGL}} --oozieSSL 2>&1 | tee /var/log/enable-oozie-ssl.log
+  args:
+    chdir: /tmp
+  when: inventory_hostname in groups['ambari_server'] and groups['oozie'] is defined and groups['oozie']|length > 0
+
+- name: use SSL for Ranger
+  shell: /root/enable-ssl.sh {{SINGL}} --rangerSSL 2>&1 | tee /var/log/enable-ranger-ssl.log
+  args:
+    chdir: /tmp
+  when: inventory_hostname in groups['ambari_server'] and groups['rangeradmin'] is defined and groups['rangeradmin']|length > 0
+
+- name: start all the configured services via ssl
+  local_action: command /bin/bash -x "{{start_all_sh}}" {{SARGS}}
+  run_once: true
+  delegate_to: localhost
+  tags: start

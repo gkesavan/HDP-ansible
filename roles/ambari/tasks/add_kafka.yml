@@ -1,0 +1,20 @@
+---
+
+- name: include create_user.yml
+  include: create_user.yml
+  when: inventory_hostname in groups['kafka']
+
+- name: create remote dir
+  file: path="{{inventory_dir}}" state=directory
+  delegate_to: "{{AMBARI_SERVER}}"
+  run_once: true
+
+- block:
+    - name: create json from j2 files
+      template: src="kdc_credential.json.j2" dest="{{kdc_credential}}" force=yes
+
+    - name: push kdc_credential
+      command: "curl -u admin:admin -H 'X-Requested-By:ambari' -X POST {{AARGS}} -d '@'{{kdc_credential}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/credentials/kdc.admin.credential"
+  when: groups['kdcserver'] is defined
+  delegate_to: "{{AMBARI_SERVER}}"
+  run_once: true

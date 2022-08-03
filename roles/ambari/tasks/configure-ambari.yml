@@ -1,0 +1,51 @@
+---
+- block:
+    - name: create remote dir
+      file: path="{{inventory_dir}}" state=directory
+
+    - name: process template and copy to ambari_server host
+      template: src="{{item}}.j2" dest="{{inventory_dir}}/{{item}}" force=yes
+      tags: blueprint
+      with_items:
+        - "cluster-template.json"
+        - "blueprint.json"
+        - "HDP.repo"
+        - "HDP_utils.repo"
+
+    - name: push blueprint
+      command: "curl -u admin:admin -H 'X-Requested-By:ambari' -X POST {{AARGS}} -d '@'{{blueprint}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/blueprints/{{ CLUSTER_NAME }}?validate_topology=false"
+
+    - name: check for cluster definition
+      command: "{{CURL}} -X GET {{AARGS}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}"
+      register: clusdef
+      ignore_errors: true
+
+    - name: push HDP repo url
+      command: "curl -u {{AMBARI_USER}}:{{AMBARI_PASSWORD}} -H 'X-Requested-By:ambari' -X PUT {{AARGS}} -d '@'{{HDP_REPO_FILE}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/{{ hdp_repo_api_url }}"
+
+    - name: push HDP_UTILS repo url
+      command: "curl -u {{AMBARI_USER}}:{{AMBARI_PASSWORD}} -H 'X-Requested-By:ambari' -X PUT {{AARGS}} -d '@'{{HDP_UTILS_REPO_FILE}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/{{ hdp_utils_repo_api_url }}"
+
+    - name: push cluster template
+      command: "{{CURL}} -X POST {{AARGS}} -d '@'{{cluster_template}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}"
+      register: json_response
+      when: clusdef.stdout.find('Cluster not found') > 0
+  tags: push, push-template
+  run_once: true
+  delegate_to: "{{AMBARI_SERVER}}"
+
+- name: include configure-ambari-ssl.yml
+  include: configure-ambari-ssl.yml
+  when: use_ssl
+
+- name: reload all the services with changed configurations
+  local_action: command /bin/bash -x "{{reload_all_sh}}" {{SARGS}}
+  run_once: true
+  delegate_to: localhost
+  when: CHECK_STALE_CONFIGS
+  tags: start
+
+- name: include restart_hdfs.yml
+  include: restart_hdfs.yml
+  tags: stop_start
+  when: rack_enforce

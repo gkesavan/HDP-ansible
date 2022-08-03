@@ -1,0 +1,9 @@
+[
+  {% for node in groups['datanode'] %}
+  {
+    "blueprint": "{{CLUSTER_NAME}}",
+    "host_group": "datanode",
+    "host_name": "{{hostvars[node]['ansible_fqdn']}}"
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+]

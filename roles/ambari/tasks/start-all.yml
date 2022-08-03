@@ -1,0 +1,31 @@
+---
+#- name: start mysql
+#  service: name=mysqld state=started enabled=yes sleep=20
+#  when: inventory_hostname in groups['mysql']
+
+#- block:
+#    - name: start ambari-server
+#      shell: ambari-server restart
+#
+#    - name: check if ambair-server is listening on port {{ AMBARI_SERVER_PORT }}
+#      wait_for: host={{ AMBARI_SERVER }} port={{ AMBARI_SERVER_PORT }} timeout=200 delay=10 state=started
+#      delegate_to: localhost
+#  tags: startall
+#  when: inventory_hostname in groups['ambari_server']
+
+#- name: ensure ambari-agent started
+#  command: ambari-agent restart
+#  when: inventory_hostname in groups['ambari_agent']
+#  tags: startall
+
+- name: create start all
+  local_action: template src=start-all.sh.j2 dest="{{start_all}}" mode=755
+  run_once: true
+  delegate_to: localhost
+  tags: startall
+
+- name: start all the services
+  local_action: command /bin/bash -x "{{start_all}}"
+  run_once: true
+  delegate_to: localhost
+  tags: startall

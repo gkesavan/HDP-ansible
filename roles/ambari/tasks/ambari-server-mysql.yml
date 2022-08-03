@@ -1,0 +1,34 @@
+---
+- block:
+    - name: drop ambari mysql schema
+      shell: mysql -h{{MYSQL_SERVER}} -p{{mysql_ambari_password}} -u{{mysql_ambari_user}} -e "DROP DATABASE IF EXISTS ambari;"
+      no_log: "{{ENABLE_LOG}}"
+
+    - name: create ambari mysql schema
+      shell: mysql -h{{MYSQL_SERVER}} -p{{mysql_ambari_password}} -u{{mysql_ambari_user}} -e "CREATE DATABASE ambari;"
+      no_log: "{{ENABLE_LOG}}"
+  delegate_to: "{{AMBARI_SERVER}}"
+  run_once: true
+
+- name: copy an ambari-server configuration with ssl for mysql
+  template: src=ambari.properties-my dest=/root/ambari.properties
+            owner=root group=root mode=0644
+  when: use_ssl and inventory_hostname in groups['ambari_server']
+
+- block:
+    - name: import ambari mysql schema
+      shell: mysql -h{{MYSQL_SERVER}} -p{{mysql_ambari_password}} -u{{mysql_ambari_user}} ambari < /var/lib/ambari-server/resources/Ambari-DDL-MySQL-CREATE.sql
+      no_log: "{{ENABLE_LOG}}"
+      ignore_errors: true
+
+    - name: setup ambari-server with mysql
+      shell: |
+        ambari-server setup -s -j "{{AMBARI_JAVA_HOME}}" --database=mysql \
+        --databasehost="{{MYSQL_SERVER}}" --databaseport=3306 --databasename=ambari \
+        --databaseusername="{{mysql_ambari_user}}" --databasepassword="{{mysql_ambari_password}}" \
+        --enable-lzo-under-gpl-license
+      no_log: "{{ENABLE_LOG}}"
+
+    - name: setup ambari-server with mysql
+      shell: ambari-server setup --jdbc-driver=/usr/share/java/mysql-connector-java.jar --jdbc-db=mysql
+      no_log: "{{ENABLE_LOG}}"

@@ -1,0 +1,3 @@
+---
+- name: set database server
+  command: /var/lib/ambari-server/resources/scripts/configs.sh -u admin -p $AMBARI_PASS -port {{AMBARI_SERVER_SSL_PORT}} -s set $AMBARI_SERVER $CLUSTER_NAME oozie-site oozie.base.url https://${OOZIE_SERVER_ONE}:11443/oozie &> /dev/null

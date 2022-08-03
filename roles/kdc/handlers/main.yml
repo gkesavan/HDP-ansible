@@ -1,0 +1,8 @@
+---
+
+- name: restart kerberos
+  shell: /etc/init.d/{{ item }} restart
+  with_items:
+    - krb5kdc
+    - kadmin
+

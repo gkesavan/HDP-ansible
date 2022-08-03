@@ -1,0 +1,31 @@
+---
+
+- name: Copy the kdc configuration file
+  template: src=kdc.conf.j2 dest=/var/kerberos/krb5kdc/kdc.conf force=yes
+  notify:
+   - restart kerberos
+
+- name: Copy the kdc acl configuration file
+  template: src=kadm5.acl.j2 dest=/var/kerberos/krb5kdc/kadm5.acl force=yes
+  notify:
+   - restart kerberos
+
+- name: Copy the client configuration file
+  template: src=krb5.conf.j2 dest=/etc/krb5.conf force=yes
+
+- name: Create the initial kerberos database
+  shell: echo -e "{{ KDC_MASTER_KEY }}\n{{ KDC_MASTER_KEY }}" | kdb5_util create -s; touch /var/kerberos/db_created creates=/var/kerberos/db_created
+  no_log: true
+
+- name: Start the kerberos services
+  service:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  with_items:
+    - krb5kdc
+    - kadmin
+
+- name: Create an admin for the administering the kerberos database
+  shell: echo -e "{{ KDC_ADMIN_PASSWORD }}\n{{ KDC_ADMIN_PASSWORD }}" | kadmin.local  -q "addprinc {{ KDC_PRINCIPAL }}"; touch /var/kerberos/admin_created creates=/var/kerberos/admin_created
+  no_log: true

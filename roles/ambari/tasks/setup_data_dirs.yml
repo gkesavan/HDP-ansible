@@ -1,0 +1,37 @@
+---
+
+- name: rm datadirs
+  file: path="{{item}}/*" state=absent
+  when: inventory_hostname in groups['datanode']
+  with_items:
+    - "{{hostvars[groups['datanode'][0]].data_pool.split(',')| default('/hadoop/data')}}"
+
+- name: rm namedirs
+  file: path="{{item}}/*" state=absent
+  when: inventory_hostname in groups['namenode']
+  with_items:
+    - "{{hostvars[groups['namenode'][0]].data_pool.split(',')| default('/hadoop/data')}}"
+
+- name: rm datadirs
+  file: path="{{item}}/*" state=absent
+  when: inventory_hostname in groups['datanode']
+  with_items:
+    - "{{hostvars[groups['datanode'][0]].local_pool.split(',')| default('/local/local')}}"
+
+- name: setup datanode dirs
+  file: path="{{item}}" state=directory mode=0700 owner="{{hdfs_user}}" group="{{hadoop_group}}" force=yes
+  when: inventory_hostname in groups['datanode']
+  with_items:
+    - "{{hostvars[groups['datanode'][0]].data_pool.split(',')}}"
+
+- name: setup zk data dirs
+  file: path="{{item}}" state=directory mode=0700 force=yes
+  when: inventory_hostname in groups['zookeeper']
+  with_items:
+    - "{{hostvars[groups['zookeeper'][0]].data_pool.split(',')}}"
+
+- name: setup namenode data dirs
+  file: path="{{item}}" state=directory mode=0700 owner="{{hdfs_user}}" group="{{hadoop_group}}" force=yes
+  when: inventory_hostname in groups['namenode']
+  with_items:
+    - "{{hostvars[groups['namenode'][0]].data_pool.split(',')}}"

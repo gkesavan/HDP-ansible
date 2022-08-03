@@ -1,0 +1,12 @@
+---
+
+- name: update rack_info
+  command: "curl -u admin:admin -H 'X-Requested-By:ambari' -X PUT {{AARGS}} -d '{ \"Hosts\":{\"rack_info\":\"{{rack_info[item]}}\" } }' {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/hosts/{{item}}"
+  run_once: true
+  with_items:
+    "{{groups['datanode']}}"
+  when: rack_enforce
+
+- name: include restart_hdfs.yml
+  include: restart_hdfs.yml
+  when: rack_enforce

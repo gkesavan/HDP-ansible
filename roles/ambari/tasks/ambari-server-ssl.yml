@@ -1,0 +1,36 @@
+---
+- name: deploy the public key
+  authorized_key: user=root key="{{ lookup('file', '/tmp/id_rsa_ambari.pub') }}" #"
+
+- name: copy certificate defaults
+  template: src=openssl.cnf.j2 dest=/etc/pki/tls/openssl.cnf
+            owner=root group=root mode=0644
+
+- name: deploy the SSL script
+  template: src=enable-ssl.sh dest=/root/enable-ssl.sh owner=root group=root mode=0755
+
+- name: create certificate directory
+  file: path=/tmp/security state=directory owner=root group=root mode=0700
+
+- name: create working data directory
+  file: path=/var/lib/ambari-server/keys state=directory
+        owner=root group=root mode=0700
+
+# To deploy real certificates, list out the FQDN.crt and FQDN.key files in custom.yml.
+- name: copy local certificates
+  copy: src="{{ crt_dir }}/{{ item }}" dest="/tmp/security/{{ item }}"
+        owner=root group=root mode=0600 #"
+  with_items: "{{ crt_list }}"
+  when: crt_dir is defined and crt_list is defined
+
+- name: use single SSL for Ambari
+  shell: /root/enable-ssl.sh --singleCRT --ambariSSL 2>&1 | tee /var/log/enable-ambari-ssl.log
+  args:
+    chdir: /tmp
+  when: single_crt
+
+- name: use SSL for Ambari
+  shell: /root/enable-ssl.sh --ambariSSL 2>&1 | tee /var/log/enable-ambari-ssl.log
+  args:
+    chdir: /tmp
+  when: not single_crt 

@@ -1,0 +1,12 @@
+---
+- name: check ambari-agent log dir
+  file: path=/var/log/ambari-agent state=directory
+
+#- name:  stop ambari-agent stop
+#  shell: ambari-agent stop
+
+#- name:  reset ambari-agent
+#  shell: "sleep 2 ; ambari-agent reset {{AMBARI_SERVER}}"
+
+#- name: start ambari-agent
+#  service: name=ambari-agent state=started enabled=yes

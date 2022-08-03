@@ -1,0 +1,4 @@
+---
+ - name: include kdcserver.yml
+   include: kdcserver.yml
+   when: inventory_hostname in groups['kdcserver']

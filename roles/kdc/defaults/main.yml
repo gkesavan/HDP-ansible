@@ -1,0 +1,8 @@
+---
+# defaults file for kdc
+KDC_SERVER: "{{hostvars[groups['kdcserver'][0]]['ansible_fqdn']}}"
+KDC_REALM: "{{kdc_params.kdc_realm}}"
+KDC_ADMIN_PASSWORD: "{{kdc_params.kdc_admin_password}}"
+KDC_MASTER_KEY_NAME: "{{kdc_params.kdc_master_key_name}}"
+KDC_MASTER_KEY: "{{kdc_params.kdc_master_key}}"
+KDC_PRINCIPAL: "{{kdc_params.kdc_principal}}"

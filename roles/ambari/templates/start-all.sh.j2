@@ -1,0 +1,472 @@
+#!/usr/bin/env bash
+# {# -*- ShellScript -*- #}
+
+VRB='false'
+if [ $# -gt 0 ] ; then
+    if [ "$1" = '-v' ] || [ "$1" = '--verbose' ] ; then
+        VRB='true'
+        shift
+    fi
+    if [ "$1" = '-d' ] || [ "$1" = '--debug' ] ; then
+        VRB='true'
+        shift
+        set -x
+    fi
+fi
+if [ $# -eq 1 ] ; then
+    URL=https
+    SEC='-s --insecure'
+    PRT="{{AMBARI_SERVER_SSL_PORT}}"
+else
+    URL=http
+    SEC='-s'
+    PRT="{{AMBARI_SERVER_PORT}}"
+fi
+
+CURLU="admin:{{AMBARI_PASSWORD}}"
+BASEU="$URL://{{AMBARI_SERVER}}:$PRT/api/v1/clusters/{{CLUSTER_NAME}}"
+
+# This list is used to determine start and stop order. Anything not here gets
+# handled by the component on host functions.
+PKGS[0]='AMS METRICS_COLLECTOR METRICS_MONITOR'
+PKGS[1]='ZOOKEEPER ZOOKEEPER_SERVER'
+PKGS[2]='RANGER RANGER_ADMIN RANGER_USERSYNC'
+PKGS[3]='RANGER_KMS RANGER_KMS_SERVER'
+PKGS[4]='HDFS NAMENODE SECONDARY_NAMENODE DATANODE JOURNALNODE ZKFC NFS_GATEWAY'
+PKGS[5]='YARN RESOURCEMANAGER APP_TIMELINE_SERVER NODEMANAGER'
+PKGS[6]='MAPREDUCE2 HISTORYSERVER'
+PKGS[7]='HIVE HIVE_METASTORE HIVE_SERVER WEBHCAT_SERVER'
+PKGS[8]='HBASE HBASE_MASTER HBASE_REGIONSERVER PHOENIX_QUERY_SERVER'
+PKGS[9]='SPARK SPARK_JOBHISTORYSERVER ZEPPLELIN_MASTER'
+PKGS[10]='STORM NIMBUS STORM_REST_API STORM_UI_SERVER DRPC_SERVER SUPERVISOR'
+PKGS[11]='FALCON FALCON_SERVER'
+PKGS[12]='KAFKA KAFKA_BROKER'
+PKGS[13]='OOZIE OOZIE_SERVER'
+PKG_LEN=14 # to avoid jinja2 complaints
+
+TMPDATA=/tmp/data_$$.json
+TMPPTHN=/tmp/dprc_$$.py
+
+function get_hosts() {
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/hosts" >$TMPDATA
+    cat >$TMPPTHN <<EOF
+import json, sys
+data = []
+skip = True
+with open('$TMPDATA') as inpt:
+    for line in inpt:
+        if len(line) < 3 and skip:
+            skip = False
+            continue
+        if skip:
+            continue
+        data.append(line.rstrip())
+jdat = json.loads('\n'.join(data))
+for item in jdat.get('items', []):
+    if 'Hosts' in item:
+        print item['Hosts']['host_name']
+EOF
+    rval=$(python $TMPPTHN $TMPDATA | sort -u | tr '\n' ' ')
+    rm -f $TMPPTHN $TMPDATA
+    if $VRB ; then >&2 echo "get_hosts: $rval" ; fi
+    echo "$rval"
+}
+
+function get_host_components() {
+    hst=$1
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/hosts/$hst" >$TMPDATA
+    cat >$TMPPTHN <<EOF
+import json, sys
+data = []
+skip = True
+with open('$TMPDATA') as inpt:
+    for line in inpt:
+        if len(line) < 3 and skip:
+            skip = False
+            continue
+        if skip:
+            continue
+        data.append(line.rstrip())
+jdat = json.loads('\n'.join(data))
+for item in jdat.get('host_components', []):
+    if 'HostRoles' in item:
+        print item['HostRoles']['component_name']
+EOF
+    rval=$(python $TMPPTHN $TMPDATA | sort -u | tr '\n' ' ')
+    rm -f $TMPPTHN $TMPDATA
+    if $VRB ; then >&2 echo "get_host_components: $hst has $rval" ; fi
+    echo "$rval"
+}
+
+function get_services() {
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/services/" >$TMPDATA
+    cat >$TMPPTHN <<EOF
+import json, sys
+data = []
+skip = True
+with open('$TMPDATA') as inpt:
+    for line in inpt:
+        if len(line) < 3 and skip:
+            skip = False
+            continue
+        if skip:
+            continue
+        data.append(line.rstrip())
+jdat = json.loads('\n'.join(data))
+for item in jdat.get('items', []):
+    if 'ServiceInfo' in item:
+        print item['ServiceInfo']['service_name']
+EOF
+    rval=$(python $TMPPTHN $TMPDATA | sort -u)
+    rm -f $TMPPTHN $TMPDATA
+    if $VRB ; then >&2 echo "get_services: enabled:" ; >&2 echo "$rval" ; fi
+    echo "$rval"
+}
+
+function get_service_state() {
+    srv=$1
+    outp=$(curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/services/$srv")
+    rval='SKIP'
+    if echo "$outp" | grep -q 'HTTP/1.1 200 OK' ; then
+        rval=$(echo "$outp" | awk '/^    "state"/ { print $3; }' | sed -e 's/"//g')
+    fi
+    if $VRB ; then >&2 echo "get_service_state: $srv is $rval" ; fi
+    echo "$rval"
+}
+
+function get_service_components() {
+    srv=$1
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/services/$srv" >$TMPDATA
+    cat >$TMPPTHN <<EOF
+import json, sys
+data = []
+skip = True
+with open('$TMPDATA') as inpt:
+    for line in inpt:
+        if len(line) < 3 and skip:
+            skip = False
+            continue
+        if skip:
+            continue
+        data.append(line.rstrip())
+jdat = json.loads('\n'.join(data))
+for item in jdat.get('items', []):
+    if 'ServiceComponentInfo' in item:
+        print item['ServiceComponentInfo']['component_name']
+EOF
+    rval=$(python $TMPPTHN $TMPDATA | sort -u)
+    rm -f $TMPPTHN $TMPDATA
+    if $VRB ; then >&2 echo "get_service_components: enabled" ; >&2 echo "$rval" ; fi
+    echo "$rval"
+}
+
+function get_service_hosts() {
+    srv=$1
+    outp=$(curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/services/$srv")
+    rval=''
+    if echo "$outp" | grep -q 'HTTP/1.1 200 OK' ; then
+        rval=$(echo "$outp" | awk '/^        "host_name"/ { print $3; }' | sed -e 's/"//g' | sed -e 's/,//' | grep -v null | sort -u)
+    fi
+    if $VRB ; then >&2 echo "get_service_hosts: $srv hosts are:" ; >&2 echo "$rval" ; fi
+    echo "$rval"
+}
+
+function start_service() {
+    srv=$1
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X PUT \
+        -d "{\"RequestInfo\":{\"context\":\"Start $srv\"},\"ServiceInfo\":{\"state\":\"STARTED\"}}" \
+        "$BASEU/services/$srv"
+}
+
+function stop_service() {
+    srv=$1
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X PUT \
+        -d "{\"RequestInfo\":{\"context\":\"Stop $srv\"},\"ServiceInfo\":{\"state\":\"INSTALLED\"}}" \
+        "$BASEU/services/$srv"
+}
+
+function get_component_state() {
+    com=$1
+    hst=$2
+    outp=$(curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET "$BASEU/hosts/$hst/host_components/$com")
+    rval='ERROR'
+    if echo "$outp" | grep -q 'HTTP/1.1 200 OK' ; then
+        rval=$(echo "$outp" | awk '/^    "state"/ { print $3; }' | sed -e 's/"//g' | sed -e 's/,//')
+    elif echo "$outp" | grep "message\" : \"The requested resource doesn't exist" ; then
+        :
+    else
+        >&2 echo "$outp"
+    fi
+    if $VRB ; then >&2 echo "get_component_state: $com on $hst is $rval" ; fi
+    echo "$rval"
+}
+
+function install_component() {
+    com=$1
+    hst=$2
+    if $VRB ; then >&2 echo "installing $com on $hst" ; fi
+    # Add the component to the host
+    curl -u "$CURLU" -i -H 'X-Requested-By: ambari' -X POST \
+        "$BASEU/hosts/$hst/host_component/$com"
+    # install the component on the host
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X PUT \
+        -d "{\"RequestInfo\":{\"context\":\"Install $com on $hst\"},\"Body\":{\"HostRoles\":{\"state\":\"INSTALLED\"}}}" \
+        "$BASEU/hosts/$hst/host_components/$com"
+}
+
+function start_component() {
+    com=$1
+    hst=$2
+    if $VRB ; then >&2 echo "start_component: $com on $hst" ; fi
+    if [ "$com" = 'METRICS_GRAFANA' ] ; then
+        # Work around grafana-getting in to a borked state that ambari-server can't handle.
+        ssh "$hst" pkill grafana-server
+    fi
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X PUT \
+        -d "{\"RequestInfo\":{\"context\":\"Start $com on $hst\",\"query\":\"HostRoles/component_name.in('$com')\"},\"Body\":{\"HostRoles\":{\"state\":\"STARTED\"}}}" \
+        "$BASEU/hosts/$hst/host_components/$com"
+}
+
+function stop_component() {
+    com=$1
+    hst=$2
+    if $VRB ; then >&2 echo "stop_component: $com on $hst" ; fi
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X PUT \
+        -d "{\"RequestInfo\":{\"context\":\"Stop $com on $hst\",\"query\":\"HostRoles/component_name.in('$com')\"},\"Body\":{\"HostRoles\":{\"state\":\"INSTALLED\"}}}" \
+        "$BASEU/hosts/$hst/host_components/$com"
+}
+
+function get_stale_components() {
+    curl $SEC -u "$CURLU" -i -H 'X-Requested-By: ambari' -X GET \
+        "$BASEU/host_components?HostRoles/stale_configs=true&fields=hostRoles/service_name,HostRoles/host_name" >$TMPDATA
+    cat >$TMPPTHN <<EOF
+import json, sys
+data = []
+skip = True
+with open('$TMPDATA') as inpt:
+    for line in inpt:
+        if len(line) < 3 and skip:
+            skip = False
+            continue
+        if skip:
+            continue
+        data.append(line.rstrip())
+jdat = json.loads('\n'.join(data))
+for item in jdat.get('items', []):
+    if 'HostRoles' in item:
+        print "{0},{1},{2}".format(item['HostRoles']['cluster_name'], item['HostRoles']['component_name'], item['HostRoles']['host_name'])
+EOF
+    rval=$(python $TMPPTHN $TMPDATA | sort -u)
+    rm -f $TMPPTHN $TMPDATA
+    if $VRB ; then >&2 echo "get_stale_components: $rval" ; fi
+    echo "$rval"
+}
+
+function wait_until_done() {
+    com=$1
+    hst=$2
+    stt=$3
+    jj=0
+    cur=$3
+    cnt=60 # Wait no more than 5 minutes by default. Yes, things can take
+    #        longer but we need to fail fast.
+    if [ $# -eq 4 ] ; then cnt=$4 ; fi
+    while echo "$cur" | grep -q "$stt" ; do
+        if $VRB ; then >&2 echo "wait_until_done: $com on $hst in $cur" ; fi
+        sleep 5
+        let jj=$jj+1
+        # shellcheck disable=SC2086
+        if [ $jj -gt $cnt ] ; then
+            echo "waited too long for $com on $hst to get out of $stt"
+            cur='ERROR'
+            break
+        fi
+        cur=$(get_component_state "$com" "$hst")
+    done
+    echo "$cur"
+}
+
+function wait_until_not_unknown() {
+    com=$1
+    hst=$2
+    cur=UNKNOWN
+    cnt=60
+    while ! echo "$cur" | grep -q "UNKNOWN" ; do
+        if $VRB ; then >&2 echo "wait_until_done: $com on $hst in $cur" ; fi
+        sleep 1
+        let jj=$jj+1
+        # shellcheck disable=SC2086
+        if [ $jj -gt $cnt ] ; then
+            echo "waited too long for $com on $hst to get out of UNKNOWN"
+            cur='ERROR'
+            break
+        fi
+        cur=$(get_component_state "$com" "$hst")
+    done
+    echo "$cur"
+}
+
+function start_comp() {
+    com=$1
+    hst=$2
+    if $VRB ; then >&2 echo "start_comp($com, $hst)" ; fi
+    wait_until_not_unknown "$com" "$hst"
+
+    CMP_STATE=$(get_component_state "$com" "$hst")
+    # HOSTS will include all datanodes, even though the component is
+    # NAMENODE, for example, so ignore errors.
+    if [ "$CMP_STATE" = 'ERROR' ] || [ "$CMP_STATE" = 'STARTED' ] || \
+       [ "$CMP_STATE" = 'STARTING' ] ; then
+        return
+    fi
+    if [ "$CMP_STATE" = 'INSTALLING' ] || [ "$CMP_STATE" = 'STOPPING' ] ; then
+        wait_until_done "$com" "$hst" "$CMP_STATE"
+        CMP_STATE=$(get_component_state "$com" "$hst")
+    fi
+    if [ "$CMP_STATE" = 'INSTALL_FAILED' ] ; then
+        install_component "$com" "$hst"
+        wait_until_done "$com" "$hst" 'INSTALLING'
+        CMP_STATE=$(get_component_state "$com" "$hst")
+    fi
+    if [ "$CMP_STATE" = 'INSTALLED' ] ; then start_component "$com" "$hst" 'INSTALLED' ; fi
+}
+
+function start_by_host() {
+    HOSTS=$(get_hosts)
+    if $VRB ; then >&2 echo "start_by_host: hosts $HOSTS" ; fi
+    for HST in $HOSTS ; do
+        COMPS=$(get_host_components "$HST")
+        for CMP in $COMPS ; do
+            start_comp "$CMP" "$HST"
+        done
+    done
+}
+
+function start_if_installed() {
+    SRV=$1
+    shift
+    SRV_STATE=$(get_service_state "$SRV")
+    if $VRB ; then >&2 echo "start_if_installed: service $SRV is $SRV_STATE" ; fi
+    if [ "$SRV_STATE" = 'SKIP' ] ; then return ; fi
+    HOSTS=$(get_service_hosts "$SRV")
+    if $VRB ; then >&2 echo "start_if_installed: check components: $*" ; fi
+    for CMP in "$@" ; do
+        for HST in $HOSTS ; do
+            start_comp "$CMP" "$HST"
+        done
+    done
+    # Wait for everything we started.
+    if $VRB ; then >&2 echo "start_if_installed: wait for state change" ; fi
+    for CMP in "$@" ; do
+        for HST in $HOSTS ; do
+            CMP_STATE=$(get_component_state "$CMP" "$HST")
+            if [ "$CMP_STATE" = 'STARTING' ] ; then wait_until_done "$CMP" "$HST" 'STARTED' ; continue ; fi
+        done
+    done
+    if [ "$SRV_STATE" != 'STARTED' ] ; then start_service "$SRV" ; fi
+}
+
+function stop_comp() {
+    com=$1
+    hst=$2
+    if $VRB ; then >&2 echo "stop_comp($com, $hst)" ; fi
+    wait_until_not_unknown "$com" "$hst"
+    CMP_STATE=$(get_component_state "$com" "$hst")
+    if [ "$CMP_STATE" = 'INSTALLING' ] || [ "$CMP_STATE" = 'STARTING' ] ; then
+        wait_until_done "$com" "$hst" "$CMP_STATE"
+        CMP_STATE=$(get_component_state "$com" "$hst")
+    fi
+    if [ "$CMP_STATE" = 'STARTED' ] ; then stop_component "$com" "$hst" 'STARTED' ; fi
+}
+
+function stop_by_host() {
+    HOSTS=$(get_hosts)
+    if $VRB ; then >&2 echo "stop_by_host: hosts $HOSTS" ; fi
+    for HST in $HOSTS ; do
+        COMPS=$(get_host_components "$HST")
+        for CMP in $COMPS ; do
+            stop_comp "$CMP" "$HST"
+        done
+    done
+}
+
+function stop_if_installed() {
+    SRV=$1
+    shift
+    SRV_STATE=$(get_service_state "$SRV")
+    if $VRB ; then >&2 echo "stop_if_installed: $SRV is $SRV_STATE" ; fi
+    if [ "$SRV_STATE" = 'SKIP' ] ; then return ; fi
+    HOSTS=$(get_service_hosts "$SRV")
+    for CMP in "$@" ; do
+        for HST in $HOSTS ; do
+            stop_comp "$CMP" "$HST"
+        done
+    done
+    # Wait for what we told to stop to stop.
+    for CMP in "$@" ; do
+        for HST in $HOSTS ; do
+            CMP_STATE=$(get_component_state "$CMP" "$HST")
+            if [ "$CMP_STATE" = 'STOPPING' ] ; then wait_until_done "$CMP" "$HST" 'INSTALLED' ; continue ; fi
+        done
+    done
+    stop_service "$SRV"
+}
+
+function start_installed() {
+    SRVS=$(get_services)
+    ii=0
+    # shellcheck disable=SC2086
+    while [ $ii -lt $PKG_LEN ] ; do
+        srv=$(echo ${PKGS[$ii]} | awk '{print $1;}')
+        if echo "$SRVS" | grep -q "$srv" ; then
+            if $VRB ; then >&2 echo "start_installed: ${PKGS[$ii]}" ; fi
+            start_if_installed ${PKGS[$ii]}
+        else
+            if $VRB ; then >&2 echo "start_installed: skipping $srv" ; fi
+        fi
+        let ii=$ii+1
+    done
+    start_by_host
+}
+
+function stop_running() {
+    SRVS=$(get_services)
+    ii=$PKG_LEN
+    # shellcheck disable=SC2086
+    while [ $ii -ge 0 ] ; do
+        let ii=$ii-1
+        srv=$(echo ${PKGS[$ii]} | awk '{print $1;}')
+        if echo "$SRVS" | grep -q "$srv" ; then
+            if $VRB ; then >&2 echo "stop_running: ${PKGS[$ii]}" ; fi
+            stop_if_installed ${PKGS[$ii]}
+        else
+            if $VRB ; then >&2 echo "stop_running: skipping $srv" ; fi
+        fi
+    done
+    stop_by_host
+}
+
+function reload_stale() {
+    # stop everything that needs to be reloaded
+    COMPS=$(get_stale_components)
+    CMP=''
+    HST=''
+    for cmp in $COMPS ; do
+        SRV=$(echo "$cmp" | cut -f1 -d,)
+        CMP=$(echo "$cmp" | cut -f2 -d,)
+        HST=$(echo "$cmp" | cut -f3 -d,)
+        stop_component "$CMP" "$HST" 'STARTED'
+    done
+    # wait for the last thing to shut down--will it be long enough?
+    if [ -n "$CMP" ] && [ -n "$HST" ] ; then  wait_until_done "$CMP" "$HST" 'STARTED' 12 ; fi
+    # now start everything that's installed, including what we just stopped
+    start_installed
+}
+
+if echo "$0" | grep -q 'start' ; then
+    start_installed
+elif echo "$0" | grep -q 'stop' ; then
+    stop_running
+elif echo "$0" | grep -q 'reload' ; then
+    reload_stale
+fi

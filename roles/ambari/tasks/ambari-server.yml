@@ -1,0 +1,63 @@
+---
+- block:
+    - set_fact: SSL_NN="{{ hostvars[groups['namenode'][0]]['ansible_fqdn'] }}" #"
+    - set_fact: SSL_NNS="{{ groups['namenode'] | map('extract', hostvars, 'ansible_fqdn') | list | join(' ') }}" #"
+    - set_fact: SSL_RM="{% if 'resourcemanager' in groups %}{{ hostvars[groups['resourcemanager'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_RMHA="{% if 'resourcemanagerha' in groups %}{{ hostvars[groups['resourcemanagerha'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_HS="{% if 'resourcemanager' in groups %}{{ hostvars[groups['resourcemanager'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_HBM="{% if 'hbasemaster' in groups %}{{ hostvars[groups['hbasemaster'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_HBMS="{% if 'hbasemaster' in groups %}{{ groups['hbasemaster'] | map('extract', hostvars, 'ansible_fqdn') | list | join(' ') }}{% endif %}" #"
+    - set_fact: SSL_HBRS="{% if 'hbaseregionserver' in groups %}{{ groups['hbaseregionserver'] | map('extract', hostvars, 'ansible_fqdn') | list | join(' ') }}{% endif %}" #"
+    - set_fact: SSL_HV="{% if 'hiveserver2' in groups %}{{ hostvars[groups['hiveserver2'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_HV_ALL="{% if 'hiveserver2' in groups %}{{ groups['hiveserver2'] | map('extract', hostvars, 'ansible_fqdn') | list | join(' ') }}{% endif %}" #"
+    - set_fact: SSL_RA="{% if 'rangeradmin' in groups %}{{ hostvars[groups['rangeradmin'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_OO="{% if 'oozie' in groups %}{{ hostvars[groups['oozie'][0]]['ansible_fqdn'] }}{% endif %}" #"
+    - set_fact: SSL_AS="{{ groups['ambari_server'] | map('extract', hostvars, 'ansible_fqdn') | list }}" #"
+    # - set_fact: SSL_ALL="{{ groups['ambari_agent'] | map('extract', hostvars, 'ansible_fqdn') | list | difference(SSL_AS) | join(' ') }}" #"
+    - set_fact: SSL_OOS="{% if 'oozie' in groups %}{{ groups['oozie'] | map('extract', hostvars, 'ansible_fqdn') | list | join(' ') }}{% endif %}" #"
+  run_once: true
+  when: use_ssl
+  delegate_to: localhost
+    
+- name: stop all the services
+  local_action: command /bin/bash -x "{{stop_all_sh}}" #"
+  when: not use_ssl
+  ignore_errors: true
+  tags: start
+
+- name: stop all the services via ssl
+  local_action: command /bin/bash -x "{{stop_all_sh}}" ssl #"
+  when: use_ssl and stop_all_services
+  ignore_errors: true
+  tags: start
+
+- name: stop ambari-server
+  shell: /etc/init.d/ambari-server stop
+  tags: setup, stop-all
+
+- include: ambari-server-mysql.yml
+  when: groups['mysql'] is defined and groups['mysql']|length > 0
+  tags: setup
+
+- include: ambari-server-oracle.yml
+  when: ORACLE_HOSTNAME is defined
+  tags: setup
+
+- include: ambari-server-postgresql.yml
+  when: groups['postgresql'] is defined and groups['postgresql']|length > 0
+
+- include: ambari-server-ssl.yml
+  when: use_ssl
+
+- name: start ambari-server
+  shell: /etc/init.d/ambari-server restart
+  tags: start-ambari
+
+- name: wait for ambari-server to start, listening on port 8080
+  local_action: wait_for host={{ AMBARI_SERVER }} port={{ AMBARI_SERVER_PORT }} state=started
+  when: not use_ssl
+
+- name: wait for ambari-server to start, listening on port 8443
+  ignore_errors: false 
+  local_action: wait_for host={{ AMBARI_SERVER }} port={{ AMBARI_SERVER_SSL_PORT }} state=started
+  when: use_ssl

@@ -1,0 +1,50 @@
+---
+#- name: make the stacks target directory
+#  file: path=/var/lib/ambari-server/resources/stacks/HDP/2.4/repos
+#        state=directory owner=root group=root mode=0755
+#
+#- name: update the Ambari database with valid HDP sources
+#  template: src=repoinfo.xml
+#            dest=/var/lib/ambari-server/resources/stacks/HDP/2.4/repos/repoinfo.xml
+#            owner=root group=root mode=0644
+#
+#- name: Update Ambari yum repo
+#  get_url: url="{{AMBARI_REPO}}" dest=/etc/yum.repos.d/ambari.repo force=yes
+#  when: OVERRIDE_REPOS == true
+#  tags: server
+#
+- name: create HDP repo json
+  local_action: template src="HDP.repo.j2" dest="{{HDP_REPO_FILE}}" force=yes
+  run_once: true
+  delegate_to: localhost
+
+- name: create HDP-UTILS repo json
+  local_action: template src="HDP_utils.repo.j2" dest="{{HDP_UTILS_REPO_FILE}}" force=yes
+  run_once: true
+  delegate_to: localhost
+#
+#- name: slurp hdp repo
+#  slurp: src="{{HDP_REPO_FILE}}"
+#  register: hdprepo
+#  run_once: true
+#  delegate_to: localhost
+#
+#- name: slurp hdp repo
+#  slurp: src="{{HDP_UTILS_REPO_FILE}}"
+#  register: hdputilsrepo
+#  run_once: true
+#  delegate_to: localhost
+#
+#- debug: msg="{{ hdprepo.content | b64decode}}"
+#  run_once: true
+#  delegate_to: localhost
+#
+#- debug: msg="{{ hdputilsrepo.content | b64decode}}"
+#  run_once: true
+#  delegate_to: localhost
+
+- name: push HDP repo url
+  command: "curl -u {{AMBARI_USER}}:{{AMBARI_PASSWORD}} -H 'X-Requested-By:ambari' -X PUT {{AARGS}} -d '@'{{HDP_REPO_FILE}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/{{ hdp_repo_api_url }}"
+
+- name: push HDP_UTILS repo url
+  command: "curl -u {{AMBARI_USER}}:{{AMBARI_PASSWORD}} -H 'X-Requested-By:ambari' -X PUT {{AARGS}} -d '@'{{HDP_UTILS_REPO_FILE}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/{{ hdp_utils_repo_api_url }}"

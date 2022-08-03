@@ -1,0 +1,13 @@
+---
+- block:
+    - name: create oozie user
+      shell: mysql -p{{mysql_root_password}} -u{{mysql_root_user}} -e "GRANT ALL PRIVILEGES ON *.* TO '{{mysql_oozie_user}}'@'%'; FLUSH PRIVILEGES;"
+
+    - name: Drop oozie mysql db
+      shell: mysql -p{{mysql_oozie_password}} -u{{mysql_oozie_user}} -e "DROP DATABASE IF EXISTS {{mysql_oozie_dbname}};"
+
+    - name: Create oozie db
+      shell: mysql -p{{mysql_oozie_password}} -u{{mysql_oozie_user}} -e "CREATE DATABASE {{mysql_oozie_dbname}};"
+#     no_log: "{{ENABLE_LOG}}"
+  delegate_to: "{{MYSQL_SERVER}}"
+  run_once: true

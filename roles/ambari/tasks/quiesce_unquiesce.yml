@@ -1,0 +1,35 @@
+---
+- block:
+    - name: namenode to safemode
+      command: "hdfs dfsadmin -{{item}}"
+      become: true
+      become_user: "{{hdfs_user}}"
+      with_items:
+        - safemode enter
+        - saveNamespace
+      run_once: true
+      delegate_to: "{{hostvars[groups['namenode'][0]]['ansible_fqdn']}}"
+
+    - name: Flush mysql tables with read lock
+      command: "mysql -NB -u{{mysql_root_user}} -p{{mysql_root_password}} -e 'FLUSH TABLES with READ LOCK'"
+      delegate_to: "{{hostvars[groups['mysql'][0]]['ansible_fqdn']}}"
+  when: quiesce
+  run_once: true
+
+- block:
+    - name: unlock mysql tables
+      command: "mysql -NB -u{{mysql_root_user}} -p{{mysql_root_password}} -e 'UNLOCK TABLES'"
+      delegate_to: "{{hostvars[groups['mysql'][0]]['ansible_fqdn']}}"
+
+    - name: namenode out of safemode
+      command: "hdfs dfsadmin -{{item}}"
+      become: true
+      become_user: "{{hdfs_user}}"
+      with_items:
+        - safemode leave
+      run_once: true
+      delegate_to: "{{hostvars[groups['namenode'][0]]['ansible_fqdn']}}"
+
+
+  when: unquiesce
+  run_once: true

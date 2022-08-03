@@ -1,0 +1,198 @@
+{ {# -*- JSON -*- #}
+
+  "blueprint" : "{{ CLUSTER_NAME }}",
+  "default_password": "{{ services_password }}",
+
+  {% if groups['ranger'] is defined %}
+  "config_recommendation_strategy" : "ONLY_STACK_DEFAULTS_APPLY",
+  {% endif %}
+
+  "host_groups" : [
+  {% if groups['ambari_server']|length > 0 %}
+    {
+      "name" : "ambari_server",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['ambari_server'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['ambari_server'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['oozie'] is defined %}
+    {
+      "name" : "oozie",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['oozie'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['oozie'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['atlas'] is defined %}
+    {
+      "name" : "atlas",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['atlas'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['atlas'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['knox'] is defined %}
+    {
+      "name" : "knox",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['knox'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['knox'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+ {% if groups['spark'] is defined %}
+    {
+      "name" : "spark",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['spark'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['spark'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['zookeeper']|length > 0 %}
+    {% for node in groups['zookeeper']|sort %}
+    {
+      "name" : "zookeeper_{{ loop.index }}",
+      "hosts" : [
+         {
+          "fqdn" : "{{ hostvars[node]['ansible_fqdn'] }}",
+          "rack_info" : "{{rack_info[node]}}"
+         }
+      ]
+    }
+    ,
+    {% endfor %}
+  {% endif %}
+  {% if groups['namenode']|length > 0 %}
+    {% for node in groups['namenode']|sort %}
+    {
+      "name" : "namenode_{{loop.index}}",
+      "hosts" : [
+         {
+           "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+           "rack_info" : "{{rack_info[node]}}"
+         }
+      ]
+    },
+    {% endfor %}
+  {% endif %}
+  {% if groups['kafka'] is defined -%}
+     {
+      "name" : "kafka",
+      "hosts" : [{% for node in groups['kafka']|sort %}
+        {
+          "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[node]}}"
+        }{% if not loop.last %},{% endif %}
+      {% endfor %}
+      ]
+      },
+  {% endif -%}
+{% if groups['datanode']|length > 0 -%}
+     {
+      "name" : "datanode",
+      "hosts" : [{% for node in groups['datanode']|sort %}
+        {
+          "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[node]}}"
+        }{% if not loop.last %},{% endif %}
+      {% endfor %}
+      ]
+      },
+  {% endif -%}
+  {% if groups['resourcemanager'] is defined and groups['resourcemanager']|length > 0 %}
+    {% for node in groups['resourcemanager']|sort %}
+    {
+      "name" : "resourcemanager_{{loop.index}}",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[node]}}"
+        }
+      ]
+    },
+    {% endfor %}
+  {% endif %}
+  {% if groups['hive'] is defined and groups['hive']|length > 0 %}
+    {
+      "name" : "hive",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['hive'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['hive'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %}
+    {% for node in groups['hbasemaster']|sort %}
+    {
+      "name" : "hbasemaster_{{loop.index}}",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+          "rack_info": "{{rack_info[node]}}"
+        }
+      ]
+    },
+    {% endfor %}
+  {% endif %}
+
+  {% if groups['ranger'] is defined %}
+    {
+      "name" : "ranger",
+      "hosts" : [
+        {
+          "fqdn" : "{{hostvars[groups['ranger'][0]]['ansible_fqdn']}}",
+          "rack_info" : "{{rack_info[hostvars[groups['ranger'][0]]['ansible_fqdn']]}}"
+        }
+      ]
+    }
+    ,
+  {% endif %}
+  {% if groups['edgenode']|length > 0 %}
+    {
+      "name" : "edgenode",
+      "hosts" : [{% for node in groups['edgenode']|sort %}
+        {
+          "fqdn" : "{{hostvars[node]['ansible_fqdn']}}",
+           "rack_info" : "{{rack_info[node]}}"
+        }{% if not loop.last %},{% endif %}
+      {% endfor %}]
+    }
+  {% endif %}
+  ]
+  {% if groups['kdcserver'] is defined and groups['kdcserver']|length > 0 %}
+  ,
+  "credentials": [
+    {
+      "alias": "kdc.admin.credential",
+      "principal": "{{KDC_PRINCIPAL}}",
+       "key": "{{KDC_MASTER_KEY}}",
+       "type": "TEMPORARY"
+    }
+  ],
+  "security": { "type": "KERBEROS" },
+  "Clusters": { "cluster_name": "{{CLUSTER_NAME}}" }
+  {% endif %}
+}

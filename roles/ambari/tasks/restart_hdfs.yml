@@ -1,0 +1,70 @@
+---
+- name: namenode to safemode
+  command: "hdfs dfsadmin -{{item}}"
+  become: true
+  become_user: "{{hdfs_user}}"
+  with_items:
+    - safemode enter
+    - saveNamespace
+  run_once: true
+  delegate_to: "{{hostvars[groups['namenode'][0]]['ansible_fqdn']}}"
+
+- block:
+    - name: stop HDFS
+      uri:
+        url: "http://{{AMBARI_SERVER}}:{{AMBARI_SERVER_PORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/services/HDFS"
+        force_basic_auth: yes
+        method: PUT
+        password: "{{AMBARI_PASSWORD}}"
+        user: "{{AMBARI_USER}}"
+        HEADER_X-Requested-By: ambari
+        body: "{{SERVICE_INSTALLED|to_json}}"
+        status_code: 202
+        return_content: yes
+      register: json_response
+
+
+    - name: check request status
+      command: "{{CURL}} {{AARGS}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/requests/{{(json_response.content|from_json)['Requests']['id']}}" #  no_log: true
+      no_log: "{{ENABLE_LOG}}"
+      register: json_response
+      delegate_to: localhost
+      until: (json_response.stdout|from_json)['Requests']['request_status'] == "COMPLETED" or (json_response.stdout|from_json)['Requests']['request_status'] == "TIMEDOUT" or (json_response.stdout|from_json)['Requests']['request_status'] == "ABORTED" or (json_response.stdout|from_json)['Requests']['request_status'] == "FAILED"
+      retries: 75
+      delay: 10
+
+    - name: Failure case
+      fail: msg="{{CLUSTER_NAME}} HDFS stop {{(json_response.stdout|from_json)['Requests']['request_status'] }}"
+      when: (json_response.stdout|from_json)['Requests']['request_status'] == "FAILED" or (json_response.stdout|from_json)['Requests']['request_status'] == "TIMEDOUT" or (json_response.stdout|from_json)['Requests']['request_status'] == "ABORTED"
+
+    - name: start HDFS
+      uri:
+        url: "http://{{AMBARI_SERVER}}:{{AMBARI_SERVER_PORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/services/HDFS"
+        force_basic_auth: yes
+        method: PUT
+        password: "admin"
+        user: "admin"
+        HEADER_X-Requested-By: ambari
+        body: "{{SERVICE_STARTED|to_json}}"
+        status_code: 202
+        return_content: yes
+      register: json_response
+
+    - name: check request status
+      command: "{{CURL}} {{AARGS}} {{APRTO}}://{{AMBARI_SERVER}}:{{APORT}}/api/v1/clusters/{{ CLUSTER_NAME }}/requests/{{(json_response.content|from_json)['Requests']['id']}}" #  no_log: true
+      no_log: "{{ENABLE_LOG}}"
+      register: json_response
+      run_once: true
+      delegate_to: localhost
+      until: (json_response.stdout|from_json)['Requests']['request_status'] == "COMPLETED" or (json_response.stdout|from_json)['Requests']['request_status'] == "TIMEDOUT" or (json_response.stdout|from_json)['Requests']['request_status'] == "FAILED"
+      retries: 75
+      delay: 10
+
+    - name: Failure case
+      fail: msg="{{CLUSTER_NAME}} HDFS start {{(json_response.stdout|from_json)['Requests']['request_status'] }}"
+      when: (json_response.stdout|from_json)['Requests']['request_status'] == "FAILED" or (json_response.stdout|from_json)['Requests']['request_status'] == "TIMEOUT"
+
+  delegate_to: localhost
+  run_once: true
+  tags: stop_start
+  ignore_errors: true

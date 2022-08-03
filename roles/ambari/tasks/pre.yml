@@ -1,0 +1,7 @@
+---
+- name: stop postgresql/ambari-server in case its running
+  shell: ambari-server stop
+  when: inventory_hostname in groups['ambari_server']
+
+#- name: stop ambari-agent in case its running
+#  shell: ambari-agent stop

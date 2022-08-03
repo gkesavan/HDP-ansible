@@ -1,0 +1,26 @@
+---
+- block:
+    - name: start postgresql
+      command: service postgresql start
+
+    - name: reset postgresql ambari-server
+      command: ambari-server reset --cluster-name {{CLUSTER_NAME}} -s
+      when: reset_ambari == true
+
+    - name: copy an ambari-server configuration with ssl for postgresql
+      template: src=ambari.properties-pg dest=/root/ambari.properties
+                owner=root group=root mode=0644
+      when: use_ssl is defined and inventory_hostname in groups['ambari_server']
+
+    - name: initialize postgresql database
+      command: service postgresql initdb
+      args:
+        creates: /var/lib/pgsql/data/base
+
+    - name: start postgresql database
+      service: name=postgresql state=started enabled=yes
+
+    - name: setup ambari-server with postgresql
+      command: ambari-server setup -s -j "{{AMBARI_JAVA_HOME}}"
+
+  when: groups['postgresql'] is defined and groups['postgresql']|length > 0

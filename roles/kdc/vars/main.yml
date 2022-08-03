@@ -1,0 +1,5 @@
+---
+# vars file for kdc
+services:
+  - krb5kdc
+  - kadmin

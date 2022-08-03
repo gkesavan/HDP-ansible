@@ -1,0 +1,32 @@
+- name: create stop all
+  local_action: template src=start-all.sh.j2 dest="{{stop_all_sh}}" mode=755
+  delegate_to: localhost
+  ignore_errors: true
+  run_once: true
+  tags: stopall
+
+- name: stop all the services
+  local_action: command /bin/bash -x "{{stop_all_sh}}"
+  delegate_to: localhost
+  ignore_errors: true
+  run_once: true
+  tags: stopall
+
+- pause:
+    seconds: 60
+  tags: stopall
+
+#- name: ensure ambari-agent stopped
+#  command: ambari-agent stop
+#  when: inventory_hostname not in groups['mysql']
+#  tags: stopall
+
+#- name: stop ambari-agent
+#  command: ambari-agent stop
+#  when: inventory_hostname not in groups['mysql']
+#  tags: stopall
+
+#- name: stop ambari-server
+#  command: ambari-server stop
+#  when: inventory_hostname in groups['ambari_server']
+#  tags: stopall

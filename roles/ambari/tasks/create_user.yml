@@ -1,0 +1,27 @@
+- block:
+    - name: create hadoop group
+      group: name="{{hadoop_users[0]['group']}}" state=present
+
+    - name: create hadoop users
+      user: name="{{hadoop_users[0]['users'][item]}}" shell=/bin/bash group="{{hadoop_users[0]['group']}}" state=present
+      with_items:
+        "{{hadoop_users[0]['users']}}"
+  when: hadoop_users is defined
+
+- block:
+    - name: create ranger group
+      group: name="{{ranger_users[0]['group']}}" state=present
+
+    - name: create ranger users
+      user: name="{{ranger_users[0]['users'][item]}}" shell=/bin/bash group="{{ranger_users[0]['group']}}" state=present
+      with_items: "{{ranger_users[0]['users']}}"
+  when: ranger_users is defined and groups['ranger'] is defined
+
+- block:
+    - name: create kms group
+      group: name="{{kms_users[0]['group']}}" state=present
+
+    - name: create kms users
+      user: name="{{kms_users[0]['users'][item]}}" shell=/bin/bash group="{{kms_users[0]['group']}}" state=present
+      with_items: "{{kms_users[0]['users']}}"
+  when: kms_users is defined and groups['ranger'] is defined

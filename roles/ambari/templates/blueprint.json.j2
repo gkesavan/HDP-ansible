@@ -1,0 +1,963 @@
+{ {# -*- JSON -*- -#}
+
+{% macro krb_client(ind='') %}
+{% if groups['kdcserver'] is defined and groups['kdcserver']|length > 0 %}
+{{ ind }}{ "name": "KERBEROS_CLIENT" },{% endif %}
+{% endmacro %}
+
+{% macro zoogroup(zookey, zport='2181', zuri='', zpath='') %}
+{% if zpath|length > 0 %}
+{% if groups['zookeeper']|length >= 3 %}
+"{{ zookey }}": "{{ zuri }}{% for node in groups['zookeeper'] %}%HOSTGROUP::zookeeper_{{ loop.index }}%:{{ zport }}{% if not loop.last %},{% endif %}{% endfor %}/{{ zpath }}"
+{% else %}
+"{{ zookey }}": "{{ zuri }}%HOSTGROUP::zookeeper%:{{ zport }}/{{ zpath }}"
+{% endif %}
+{% else %}
+{% if groups['zookeeper']|length >= 3 %}
+"{{ zookey }}": "{{ zuri }}{% for node in groups['zookeeper'] %}%HOSTGROUP::zookeeper_{{ loop.index }}%:{{ zport }}{% if not loop.last %},{% endif %}{% endfor %}"
+{% else %}
+"{{ zookey }}": "{{ zuri }}%HOSTGROUP::zookeeper%:{{ zport }}"
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro return_dir(dirs, aname) %}
+{% for dir in dirs.split(",")%}{{dir}}/{{aname}}{% if not loop.last %},{% endif %}{% endfor %}
+{% endmacro %}
+
+
+{% macro kerberos() %}
+{% if groups['kdcserver'] is defined and groups['kdcserver']|length > 0 %}
+"kerberos"
+{% else %}
+"simple"
+{% endif %}
+{% endmacro %}
+
+"settings" : [{
+ "recovery_settings" : [{
+ "recovery_enabled" : "true"
+ }
+ ]}
+],
+
+
+  "Blueprints": {
+    "blueprint_name": "{{ CLUSTER_NAME }}",
+    "stack_name": "HDP",
+    "stack_version": "3.1"
+{% if groups['kdcserver'] is defined and groups['kdcserver']|length > 0 %},
+    "security": {
+      "type": "KERBEROS"
+    }
+{% endif %}
+  }
+  ,
+  "host_groups": [
+{% if groups['ambari_server'] %}
+    {
+      "name": "ambari_server",
+      "components": [
+        { "name": "AMBARI_SERVER" },
+        {{ krb_client() }}
+        { "name": "HDFS_CLIENT" },
+        {% if groups['resourcemanager'] is defined %}
+           { "name": "YARN_CLIENT" },
+           {% if groups['spark'] is defined %}
+              { "name": "SPARK2_CLIENT" },
+           {% endif %}
+        { "name": "TEZ_CLIENT" },
+        { "name": "PIG" },
+        { "name": "MAPREDUCE2_CLIENT" },
+{% endif %}
+        {% if groups['oozie'] is defined %}
+             { "name": "OOZIE_CLIENT" },
+        {% endif %}
+{% if groups['hive'] is defined %}
+        { "name": "HIVE_CLIENT" },
+{% endif %}
+        { "name": "ZOOKEEPER_CLIENT" },
+{% if groups['hbasemaster'] is defined %}
+        { "name": "HBASE_CLIENT" },
+{% endif %}
+      {"name": "METRICS_MONITOR"},
+      {"name": "METRICS_COLLECTOR"}
+       ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+{% if groups['zookeeper']|length > 0 %}
+{% for node in groups['zookeeper']|sort %}
+    {
+      "name": "zookeeper_{{ loop.index }}",
+      "components": [
+        { "name": "ZOOKEEPER_SERVER" },
+        {{ krb_client() }}
+        { "name": "JOURNALNODE" },
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endfor %}
+{% endif %}
+{% if groups['namenode'] is defined and groups['namenode']|length > 0 %}
+    {% for node in groups['namenode']|sort %}
+    {
+      "name": "namenode_{{loop.index}}",
+      "components": [
+        { "name": "NAMENODE" },
+        { "name": "ZKFC" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endfor %}
+{% endif %}
+{% if groups['spark'] is defined and groups['resourcemanager'] is defined %}
+    {
+      "name": "spark",
+      "components": [
+      {% if groups['hive'] is defined %}
+        { "name": "ZEPPELIN_MASTER" },
+        { "name": "HIVE_CLIENT" },
+      {% endif %}
+        { "name": "SPARK2_JOBHISTORYSERVER" },
+        { "name": "HDFS_CLIENT" },
+        { "name": "YARN_CLIENT" },
+        { "name": "SPARK2_CLIENT" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+{% if groups['oozie'] is defined and groups['oozie']|length > 0 %}
+    {
+      "name": "oozie",
+      "components": [
+        {{ krb_client() }}
+        { "name": "OOZIE_SERVER" },
+        { "name": "HDFS_CLIENT" },
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+    {
+      "name": "datanode",
+      "components": [
+        { "name": "DATANODE" },
+        {{ krb_client() }}
+{% if groups['resourcemanager'] is defined and groups['resourcemanager']|length > 0 %}
+        { "name": "NODEMANAGER"},
+{% endif %}
+{% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %}
+        { "name": "HBASE_REGIONSERVER"},
+{% endif %}
+        { "name": "METRICS_MONITOR"}
+      ],
+      "cardinality": "1"
+    }
+    , {% if groups['resourcemanager'] is defined and groups['resourcemanager']|length > 0 %}
+    {% for node in groups['resourcemanager']|sort %}
+    {
+      "name": "resourcemanager_{{loop.index}}",
+      "components": [
+    {% if loop.index == 1 %}
+        { "name": "HISTORYSERVER" },
+        { "name": "APP_TIMELINE_SERVER" },
+    {% endif %}
+        { "name": "RESOURCEMANAGER" },
+        {{ krb_client() }}
+        { "name": "HDFS_CLIENT" },
+        { "name": "METRICS_MONITOR" }
+     ],
+      "cardinality": "1"
+    }
+    ,
+{% endfor %}
+{% endif %}
+{% if groups['hive'] is defined and groups['hive']|length > 0 %}
+    {
+      "name": "hive",
+      "components": [
+        { "name": "HIVE_METASTORE" },
+        { "name": "HDFS_CLIENT" },
+        { "name": "TEZ_CLIENT" },
+        { "name": "YARN_CLIENT" },
+        { "name": "HIVE_SERVER" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "{{ groups['hive']|length }}"
+    }
+    ,
+{% endif %}
+
+{% if groups['kafka'] is defined %}
+    {
+      "name": "kafka",
+      "components": [
+        { "name": "KAFKA_BROKER" },
+        { "name": "HDFS_CLIENT" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+
+{% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %}
+    {% for node in groups['hbasemaster']|sort %}
+    {
+      "name": "hbasemaster_{{loop.index}}",
+      "components": [
+        { "name": "HBASE_MASTER" },
+        { "name": "HDFS_CLIENT" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endfor %}
+{% endif %}
+{% if groups['atlas'] is defined %}
+    {
+      "name": "atlas",
+      "components": [
+        { "name": "ATLAS_SERVER" },
+        { "name": "HBASE_CLIENT" },
+        { "name": "INFRA_SOLR" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+{% if groups['knox'] is defined %}
+    {
+      "name": "knox",
+      "components": [
+        { "name": "KNOX_GATEWAY" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+{% if groups['ranger'] is defined and groups['ranger']|length > 0 %}
+    {
+      "name": "ranger",
+      "components": [
+        { "name": "RANGER_KMS_SERVER" },
+        { "name": "RANGER_USERSYNC" },
+        { "name": "RANGER_TAGSYNC" },
+        { "name": "RANGER_ADMIN" },
+        {{ krb_client() }}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+    ,
+{% endif %}
+
+    {
+      "name": "edgenode",
+      "components": [
+        {{ krb_client() }}
+{% if groups['resourcemanager'] is defined %}
+        { "name": "YARN_CLIENT" },
+        { "name": "MAPREDUCE2_CLIENT" },
+   {% if groups['spark'] is defined %}
+        { "name" : "SPARK2_CLIENT" },
+   {% endif %}
+{% endif %}
+{% if groups['oozie'] is defined %}
+        { "name": "OOZIE_CLIENT" },
+{% endif %}
+{% if groups['hive'] is defined %}
+        { "name": "HIVE_CLIENT" },
+{% endif %}
+{% if groups['pig'] is defined %}
+        { "name": "PIG" },
+{% endif %}
+        { "name": "ZOOKEEPER_CLIENT" },
+        { "name": "HDFS_CLIENT" },
+{% if groups['hbasemaster'] is defined %}
+        { "name": "HBASE_CLIENT" },
+{% endif %}
+{% if groups['atlas'] is defined %}
+        { "name": "ATLAS_CLIENT" },
+        { "name": "INFRA_SOLR_CLIENT" },
+{% endif %}
+        { "name": "METRICS_MONITOR" }
+      ],
+      "cardinality": "1"
+    }
+  ],
+  "configurations": [
+    {
+      "hadoop-env": {
+        "properties_attributes": { },
+        "properties": {
+          "hadoop_heapsize": "{{ hadoop_heap}}",
+          "proxyuser_group": "users",
+          "hadoop_root_logger": "INFO,RFA",
+          "dtnode_heapsize": "{{dtnode_heap}}",
+          "hdfs_user": "{{hdfs_user}}",
+          "namenode_opt_newsize": "{{namenode_opt_newsize}}",
+          "namenode_heapsize": "{{namenode_heap}}",
+          "namenode_opt_maxpermsize": "{{namenode_opt_maxpermsize}}",
+          "hdfs_user_nofile_limit": "12800",
+          "hdfs_user_nproc_limit": "65536",
+          "namenode_opt_maxnewsize": "{{namenode_opt_maxnewsize}}",
+          "namenode_opt_permsize": "{{namenode_opt_permsize}}",
+          "keyserver_port": ""
+        }
+      }
+    }
+    ,
+    {
+      "mapred-site": {
+        "properties_attributes": { },
+        "properties": {
+          "mapreduce.cluster.administrators" : " {{hadoop_group}}"
+        }
+       }
+      },
+     {
+     "mapred-env": {
+        "properties_attributes": { },
+        "properties": {
+          "mapred_user" : "{{mapred_user}}"
+        }
+        }
+      },
+    {
+      "core-site": {
+        "properties": {
+          "fs.defaultFS": "hdfs://{{FS_NAME}}",
+          "hadoop.http.cross-origin.enabled" : "true",
+          "hadoop.http.cross-origin.allowed-origins": "*",
+          "hadoop.http.cross-origin.allowed-methods": "GET,POST,HEAD",
+          "hadoop.http.cross-origin.allowed-headers": "X-Requested-With,Content-Type,Accept,Origin",
+          "hadoop.http.cross-origin.max-age": "1800",
+          "hadoop.proxyuser.root.groups":"*",
+          "hadoop.proxyuser.root.hosts":"{{AMBARI_SERVER}}",
+          "io.compression.codec.lzo.class" : "com.hadoop.compression.lzo.LzoCodec",
+          "io.compression.codecs": "com.hadoop.compression.lzo.LzoCodec",
+          {{ zoogroup("ha.zookeeper.quorum") }}
+        }
+      }
+    },
+    {
+      "cluster-env" : {
+        "properties_attributes" : { },
+        "properties" : {
+          "user_group" : "{{hadoop_group}}",
+          "override_uid" : "false",
+          "security_enabled" : "false",
+          "smokeuser" : "{{smoketest_user}}",
+          "fetch_nonlocal_groups" : "true",
+          "managed_hdfs_resource_property_names" : "",
+          "ignore_groupsusers_create" : "true"
+        }
+      }
+      },
+    {
+      "zookeeper-env": {
+        "properties": {
+           "zk_user" : "{{zookeeper_user}}",
+           "zk_server_heapsize": "{{zk_server_heapsize}}"
+        }
+      }
+    }
+    ,
+    {
+      "zoo.cfg": {
+        "properties" : {
+          "dataDir" : "{{zk_data_dir}}"
+       }
+     }
+    },
+  {% if groups['kafka'] is defined %}
+    {
+      "kafka-env" : {
+        "properties" : {
+          "kafka_group" : "{{hadoop_group}}",
+          "kafka_user_nofile_limit": "12800",
+          "kafka_user" : "{{kafka_user}}"
+        }
+      }
+    },
+    {
+      "kafka-broker" : {
+        "properties" : {
+          "auto.create.topics.enable" : "true",
+          "controlled.shutdown.enable" : "false",
+          "controlled.shutdown.max.retries" : "3",
+          "controlled.shutdown.retry.backoff.ms" : "5000",
+          "controller.message.queue.size" : "10",
+          "controller.socket.timeout.ms" : "30000",
+          "default.replication.factor" : "1",
+          "fetch.purgatory.purge.interval.requests" : "10000",
+          "kafka.ganglia.metrics.group" : "kafka",
+          "kafka.ganglia.metrics.port" : "8671",
+          "kafka.ganglia.metrics.reporter.enabled" : "true",
+          {{ zoogroup("zookeeper.connect") }},
+          "zookeeper.connection.timeout.ms" : "6000",
+          "zookeeper.session.timeout.ms" : "30000",
+          "zookeeper.sync.time.ms" : "2000"
+        }
+      }
+    },
+   {% endif %}
+   {% if groups['atlas'] is defined %}
+    {
+      "atlas-env" : {
+        "properties" : {
+          "metadata_user" : "{{atlas_user}}"
+        }
+      }
+    },
+    {
+      "infra-solr-env": {
+        "properties" : {
+          "infra_solr_user" : "{{infrasolr_user}}",
+          "infra_solr_znode" : "/infra-solr"
+        }
+      }
+    },
+    {
+      "application-properties" : {
+        "properties" : {
+          {{ zoogroup("atlas.audit.hbase.zookeeper.quorum") }},
+          {{ zoogroup("atlas.graph.index.search.solr.zookeeper-url",zpath='infra-solr') }},
+          {{ zoogroup("atlas.kafka.zookeeper.connect") }},
+          {{ zoogroup("atlas.graph.storage.hostname") }},
+          "atlas.notification.create.topics" : "true",
+          "atlas.graph.storage.hbase.table" : "atlas_titan"
+          }
+      }
+    },
+  {% endif %}
+  {% if groups['spark'] is defined  and groups['resourcemanager'] is defined and groups['hive'] is defined %}
+    {
+      "zeppelin-env" : {
+        "properties" : {
+          "zeppelin_group" : "{{hadoop_group}}",
+          "zeppelin_user" : "{{zeppelin_user}}"
+        }
+      }
+    },
+ {% endif %}
+ {% if groups['knox'] is defined %}
+    {
+      "knox-env" : {
+        "properties" : {
+          "knox_group" : "{{knox_group}}",
+          "knox_user" : "{{knox_user}}"
+        }
+      }
+    },
+    {% endif %}
+    {
+      "hdfs-site": {
+        "properties": {
+          "dfs.cluster.administrators" : "{{hdfs_user}}",
+          "dfs.webhdfs.enabled" : "true",
+          "fs.default.name": "hdfs://{{FS_NAME}}",
+          "dfs.client.failover.proxy.provider.{{FS_NAME}}": "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider",
+          "dfs.client.block.write.replace-datanode-on-failure.enable": "false",
+          "dfs.ha.automatic-failover.enabled": "true",
+          "dfs.ha.fencing.methods": "shell(/bin/true)",
+          "dfs.ha.namenodes.{{FS_NAME}}": "nn1,nn2",
+          "dfs.namenode.http-address": "%HOSTGROUP::namenode_1%:50070",
+          "dfs.namenode.http-address.{{FS_NAME}}.nn1": "%HOSTGROUP::namenode_1%:50070",
+          "dfs.namenode.http-address.{{FS_NAME}}.nn2": "%HOSTGROUP::namenode_2%:50070",
+          "dfs.namenode.https-address": "%HOSTGROUP::namenode_1%:50470",
+          "dfs.namenode.https-address.{{FS_NAME}}.nn1": "%HOSTGROUP::namenode_1%:50470",
+          "dfs.namenode.https-address.{{FS_NAME}}.nn2": "%HOSTGROUP::namenode_2%:50470",
+          "dfs.namenode.rpc-address.{{FS_NAME}}.nn1": "%HOSTGROUP::namenode_1%:8020",
+          "dfs.namenode.rpc-address.{{FS_NAME}}.nn2": "%HOSTGROUP::namenode_2%:8020",
+          {{ zoogroup("dfs.namenode.shared.edits.dir", "8485", "qjournal://", FS_NAME) }},
+          "dfs.nameservices": "{{FS_NAME}}",
+          "dfs.namenode.name.dir": "{{ return_dir(name_dir,"nn")}}",
+          "dfs.datanode.data.dir": "{{return_dir(data_dir, "dn")}}",
+          "dfs.journalnode.edits.dir": "{{return_dir(edit_dir, "journal")}}"
+
+        }
+      }
+    }
+{% if groups['ranger'] is defined and groups['ranger']|length > 0 %}
+    ,{
+      "ranger-hdfs-plugin-properties": {
+        "properties": {
+          "REPOSITORY_CONFIG_USERNAME": "hadoop",
+          "ranger-hdfs-plugin-enabled": "Yes",
+          "common.name.for.certificate": "",
+          "policy_user": "{{policy_user}}",
+          "hadoop.rpc.protection": ""
+        }
+      }
+    }
+{% endif %}
+{% if groups['resourcemanager'] is defined %}
+    ,
+    {
+      "tez-env" : {
+        "properties" : {
+           "tez_user" : "{{tez_user}}"
+        }
+      }
+    },
+    {
+      "yarn-site": {
+        "properties": {
+          "yarn.admin.acl" : "{{yarn_user}}",
+          "yarn.timeline-service.store-class": "org.apache.hadoop.yarn.server.timeline.EntityGroupFSTimelineStore",
+          "hadoop.registry.rm.enabled": "false",
+          "yarn.nodemanager.remote-app-log-dir": "/app-logs",
+          "yarn.nodemanager.local-dirs":"{{ return_dir(yarn_local_dir,"yarn") }}",
+          "yarn.timeline-service.leveldb-timeline-store.path": "{{ return_dir(yarn_local_dir,"timeline") }}",
+          "yarn.timeline-service.leveldb-state-store.path": "{{ return_dir(yarn_local_dir,"state") }}",
+          "yarn.nodemanager.log-dirs": "{{ return_dir(yarn_local_dir,"log") }}",
+          "yarn.scheduler.maximum-allocation-mb": "{{ yarn_scheduler_maximum_allocation_mb }}",
+          "yarn.scheduler.maxixum-allocation-vcores" : "{{yarn_scheduler_maximum_allocation_vcores }}"
+        {% if groups['resourcemanager']|length > 1 %}
+          ,
+          {{ zoogroup("hadoop.registry.zk.quorum") }},
+          "yarn.log.server.url": "http://%HOSTGROUP::resourcemanager_1%:19888/jobhistory/logs",
+          "yarn.resourcemanager.address": "%HOSTGROUP::resourcemanager_1%:8050",
+          "yarn.resourcemanager.admin.address": "%HOSTGROUP::resourcemanager_1%:8141",
+          "yarn.resourcemanager.cluster-id": "yarn-cluster",
+          "yarn.resourcemanager.ha.enabled": "true",
+          "yarn.resourcemanager.ha.rm-ids": "rm1,rm2",
+          "yarn.resourcemanager.hostname": "%HOSTGROUP::resourcemanager_1%",
+          "yarn.resourcemanager.recovery.enabled": "true",
+          "yarn.resourcemanager.resource-tracker.address": "%HOSTGROUP::resourcemanager_1%:8025",
+          "yarn.resourcemanager.scheduler.address": "%HOSTGROUP::resourcemanager_1%:8030",
+          "yarn.resourcemanager.store.class": "org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore",
+          "yarn.resourcemanager.webapp.address": "%HOSTGROUP::resourcemanager_1%:8088",
+          "yarn.resourcemanager.webapp.https.address": "%HOSTGROUP::resourcemanager_1%:8090",
+          "yarn.timeline-service.address": "%HOSTGROUP::resourcemanager_1%:10200",
+          "yarn.timeline-service.webapp.address": "%HOSTGROUP::resourcemanager_1%:8188",
+          "yarn.timeline-service.webapp.https.address": "%HOSTGROUP::resourcemanager_1%:8190",
+          {{ zoogroup("yarn.resourcemanager.zk-address") }},
+          "yarn.nodemanager.container-monitor.interval-ms": "3000",
+          "yarn.nodemanager.linux-container-executor.group": "hadoop",
+          "yarn.application.classpath": "$HADOOP_CONF_DIR,/usr/hdp/current/hadoop-client/*,/usr/hdp/current/hadoop-client/lib/*,/usr/hdp/current/hadoop-hdfs-client/*,/usr/hdp/current/hadoop-hdfs-client/lib/*,/usr/hdp/current/hadoop-yarn-client/*,/usr/hdp/current/hadoop-yarn-client/lib/*",
+          "yarn.nodemanager.remote-app-log-dir-suffix": "logs",
+          "yarn.nodemanager.address": "0.0.0.0:45454",
+          "yarn.timeline-service.leveldb-timeline-store.ttl-interval-ms": "300000",
+          "yarn.timeline-service.address": "%HOSTGROUP::resourcemanager_1%:10200",
+          "yarn.timeline-service.enabled": "true",
+          "yarn.nodemanager.aux-services": "mapreduce_shuffle",
+          "yarn.resourcemanager.hostname.rm2": "%HOSTGROUP::resourcemanager_2%",
+          "yarn.resourcemanager.hostname.rm1": "%HOSTGROUP::resourcemanager_1%",
+          "yarn.resourcemanager.zk-acl": "world:anyone:rwcda ",
+          "yarn.timeline-service.http-authentication.simple.anonymous.allowed": "true",
+          "yarn.resourcemanager.webapp.address.rm2": "%HOSTGROUP::resourcemanager_2%:8088",
+          "yarn.resourcemanager.webapp.address.rm1": "%HOSTGROUP::resourcemanager_1%:8088",
+          "yarn.resourcemanager.zk-state-store.parent-path": "/rmstore",
+          "yarn.timeline-service.http-authentication.type": "simple",
+          "yarn.resourcemanager.webapp.https.address.rm1": "%HOSTGROUP::resourcemanager_1%:8090",
+          "yarn.resourcemanager.webapp.https.address.rm2": "%HOSTGROUP::resourcemanager_2%:8090",
+          "yarn.resourcemanager.scheduler.class": "org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler",
+          "yarn.timeline-service.generic-application-history.store-class": "org.apache.hadoop.yarn.server.applicationhistoryservice.NullApplicationHistoryStore",
+          "yarn.acl.enable": "false",
+          "yarn.nodemanager.linux-container-executor.resources-handler.class": "org.apache.hadoop.yarn.server.nodemanager.util.DefaultLCEResourcesHandler",
+          "yarn.resourcemanager.state-store.max-completed-applications": "${yarn.resourcemanager.max-completed-applications}",
+          "yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage": "90"
+        {% endif %}
+          }
+      }
+    }
+{% endif %}
+{% if groups['hive'] is defined and groups['hive']|length > 0 %}
+    ,
+    {
+      "hive-site": {
+        "properties": {
+          "fs.defaultFS": "hdfs://{{FS_NAME}}",
+          {{ zoogroup("ha.zookeeper.quorum") }},
+       {% if groups['ranger'] is defined %}
+          "hive.security.authorization.enabled": "true",
+        {% else %}
+          "hive.security.authorization.enabled": "false",
+       {% endif %}
+          "javax.jdo.option.ConnectionDriverName": "com.mysql.jdbc.Driver",
+          "javax.jdo.option.ConnectionUserName": "{{mysql_hive_user}}",
+          "javax.jdo.option.ConnectionPassword": "{{mysql_hive_password}}",
+          "javax.jdo.option.ConnectionURL": "jdbc:mysql://{{MYSQL_SERVER}}/hive?createDatabaseIfNotExist=true"
+          {#
+          "hive.tez.container.size": "2000",
+          "fs.file.impl.disable.cache" : "true",
+          "fs.hdfs.impl.disable.cache" : "true"
+          #}
+        }
+      }
+    }
+    ,
+    {
+      "hive-interactive-site": {
+        "properties": {
+            "hive.llap.daemon.yarn.container.mb": "1024MB",
+            "hive.llap.io.memory.size": "256MB"
+        }
+      }
+    },
+   {
+      "hiveserver2-site": {
+        "properties": {
+       {% if groups['ranger'] is defined %}
+          "hive.security.authorization.enabled": "true",
+          "hive.security.authorization.manager": "org.apache.ranger.authorization.hive.authorizer.RangerHiveAuthorizerFactory",
+          "hive.conf.restricted.list": "hive.security.authorization.enabled,hive.security.authorization.manager,hive.security.authenticator.manager",
+          "hive.server2.enable.doAs": "true",
+        {% else %}
+          "hive.security.authorization.manager": "org.apache.hadoop.hive.ql.security.authorization.plugin.sqlstd.SQLStdHiveAuthorizerFactory",
+          "hive.conf.restricted.list": "hive.security.authenticator.manager,hive.security.authorization.manager,hive.security.metastore.authorization.manager,hive.security.metastore.authenticator.manager,hive.users.in.admin.role,hive.server2.xsrf.filter.enabled,hive.security.authorization.enabled",
+          "hive.security.authorization.enabled": "false",
+          "hive.server2.enable.doAs": "false",
+       {% endif %}
+          "hive.security.authenticator.manager": "org.apache.hadoop.hive.ql.security.SessionStateUserAuthenticator"
+        }
+      }
+    },
+{% if groups['ranger'] is defined %}
+    {
+      "ranger-hive-plugin-properties" : {
+        "properties_attributes" : { },
+        "properties" : {
+          "policy_user" : "{{policy_user}}"
+        }
+      }
+    },
+{% endif %}
+   {
+      "hive-env": {
+        "properties": {
+{% if groups['ranger'] is defined %}
+          "hive_security_authorization": "Ranger",
+{% else %}
+          "hive_security_authorization": "None",
+{% endif %}
+          "hive_ambari_database": "MySQL",
+          "hive_database": "Existing MySQL Database",
+          "hive_database_name": "hive",
+          "hive_database_type": "mysql",
+          "hive_existing_mysql_host": "{{MYSQL_SERVER}}",
+          "hive_user" : "{{hive_user}}"
+        }
+      }
+    }
+{% endif %}
+{% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %}
+    ,
+    {
+      "hbase-env": {
+        "properties": { "hbase_user": "{{hbase_user}}" }
+      }
+    },
+    {
+      "hbase-site": {
+        "properties": {
+          "hbase.rootdir": "hdfs://{{FS_NAME}}/apps/hbase/data",
+          "hbase.regionserver.global.memstore.lowerLimit": "0.38",
+          "hbase.regionserver.global.memstore.upperLimit": "0.4",
+          "hbase.regionserver.handler.count": "60",
+          "hbase.regionserver.info.port": "60030",
+          "hbase.regionserver.storefile.refresh.period": "20",
+          "hbase.security.authentication": "{{ kerberos }}",
+          "hbase.security.authorization": "false",
+          "hbase.superuser" : "{{hbase_user}}",
+          "hbase.tmp.dir": "{{return_dir(hbase_tmp_dir, "hbase-tmp")}}",
+          "hbase.zookeeper.property.clientPort": "2181",
+          {{ zoogroup("hbase.zookeeper.quorum") }},
+          "hbase.zookeeper.useMulti": "true",
+          "hfile.block.cache.size": "0.40",
+          "hbase.regionserver.wal.codec":"org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec",
+          "hbase.rpc.controllerfactory.class": "org.apache.hadoop.hbase.ipc.controller.ServerRpcControllerFactory",
+          "phoenix.functions.allowUserDefinedFunctions": "true",
+          "hbase.region.server.rpc.scheduler.factory.class":"org.apache.hadoop.hbase.ipc.PhoenixRpcSchedulerFactory",
+          "hbase.coprocessor.regionserver.classes":"",
+          "phoenix_sql_enabled":"true",
+          "zookeeper.session.timeout": "30000",
+          "zookeeper.znode.parent": "/hbase-unsecure"
+        }
+      }
+    }
+{% endif %}
+{% if groups['oozie'] is defined and groups['oozie'] |length > 0%}
+    ,
+    {
+      "oozie-site": {
+        "properties": {
+          "fs.defaultFS": "hdfs://{{FS_NAME}}",
+          {{ zoogroup("ha.zookeeper.quorum") }},
+          "oozie.db.schema.name": "{{mysql_oozie_dbname}}",
+          "oozie.service.JPAService.create.db.schema": "true",
+          "oozie.service.JPAService.jdbc.username": "{{mysql_oozie_user}}",
+          "oozie.service.JPAService.jdbc.password": "{{mysql_oozie_password}}",
+          "oozie.service.JPAService.jdbc.driver": "com.mysql.jdbc.Driver",
+          "oozie_data_dir": "{{return_dir(oozie_data_dir,"oozie")}}",
+          "oozie.service.JPAService.jdbc.url": "jdbc:mysql://{{MYSQL_SERVER}}:3306/{{mysql_oozie_dbname}}",
+          {{ zoogroup("oozie.zookeeper.connection.string") }}
+        }
+      }
+    }
+    ,
+    {
+      "oozie-env": {
+        "properties": {
+          "oozie_database": "Existing MySQL Database",
+          "oozie_user": "{{oozie_user}}",
+          "oozie_database_type": "mysql",
+          "oozie_existing_mysql_host": "{{MYSQL_SERVER}}",
+          "oozie_hostname": "{{OOZIE_HOST}}"
+        }
+      }
+    }
+{% endif %}
+{% if groups['ranger'] is defined and groups['ranger']|length > 0 %}
+    ,
+    {
+      "admin-properties": {
+        "properties": {
+          "DB_FLAVOR": "MYSQL",
+          "audit_db_name": "ranger_audit",
+          "audit_db_user": "rangerlogger",
+          "audit_db_password": "{{mysql_ranger_audit_password}}",
+          "db_name": "ranger",
+          "db_password": "{{mysql_ranger_password}}",
+          "db_host":"{{MYSQL_SERVER}}:3306",
+          "SQL_CONNECTOR_JAR": "/usr/share/java/mysql-connector-java.jar",
+          "db_root_user": "{{mysql_root_user}}",
+          "db_root_password":"{{mysql_root_password}}"
+        }
+      }
+    }
+    ,
+    {
+      "ranger-admin-site": {
+        "properties": {
+          "ranger.jpa.jdbc.url":"jdbc:mysql://{{MYSQL_SERVER}}:3306/ranger"
+          }
+      }
+    },
+    {
+      "kms-env": {
+        "properties": {
+          "kms_user":"{{kms_user}}",
+          "kms_group":"{{kms_group}}"
+          }
+      }
+    },
+    {
+      "ranger-env": {
+        "properties": {
+          "xasecure.audit.destination.db": "true",
+          "xasecure.audit.destination.solr": "false",
+          "xasecure.audit.destination.hdfs": "false",
+          "is_solrCloud_enabled": "false",
+          "admin_password": "{{RANGER_ADMIN_PASSWORD}}",
+          "ranger_admin_password": "{{RANGER_ADMIN_PASSWORD}}",
+          "rangerusersync_user_password": "{{RANGERUSERSYNC_USER_PASSWORD}}",
+          "rangertagsync_user_password": "{{RANGERTAGSYNC_USER_PASSWORD}}",
+          "keyadmin_user_password": "{{KEYADMIN_USER_PASSWORD}}",
+          "ranger_user":"{{ranger_user}}",
+          "ranger_group":"{{ranger_group}}",
+          "ranger-hdfs-plugin-enabled":"Yes"
+{% if groups['resourcemanager'] is defined and groups['resourcemanager']|length > 0 %},
+          "ranger-yarn-plugin-enabled":"Yes"
+{% endif %}
+{% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %},
+          "ranger-hbase-plugin-enabled":"Yes"
+{% endif %}
+        }
+      }
+    }
+    ,
+    {
+      "dbks-site": {
+        "properties": {
+          "ranger.ks.jpa.jdbc.url":"jdbc:mysql://{{MYSQL_SERVER}}:3306/rangerkms"
+        }
+      }
+    },
+    {
+      "kms-properties": {
+        "properties": {
+          "KMS_MASTER_KEY_PASSWD":"kmsmaster",
+          "db_host":"{{MYSQL_SERVER}}:3306",
+          "db_root_user": "{{mysql_root_user}}",
+          "db_root_password":"{{mysql_root_password}}",
+          "db_password": "{{mysql_ranger_kms_password}}"
+        }
+      }
+    }
+    ,
+    {
+      "ranger-kms-audit": {
+        "properties": { "xasecure.audit.is.enabled":"No" }
+      }
+    }
+    ,
+    {
+      "ranger-hdfs-plugin-properties": {
+        "properties": {
+          "REPOSITORY_CONFIG_USERNAME": "hadoop",
+          "ranger-hdfs-plugin-enabled": "Yes",
+          "common.name.for.certificate": "",
+          "policy_user": "{{policy_user}}",
+          "hadoop.rpc.protection": ""
+        }
+      }
+    }
+    ,
+    {
+      "ranger-hdfs-audit": {
+        "properties": {
+          "xasecure.audit.destination.hdfs":"false",
+          "xasecure.audit.destination.solr":"false"
+        }
+      }
+    }
+{% if groups['resourcemanager'] is defined and groups['resourcemanager']|length > 0 %}
+    ,
+    {
+      "yarn-env": {
+        "properties": {
+          "yarn_user" : "{{yarn_user}}",
+          "yarn_ats_user": "{{yarn_ats_user}}"
+        }
+      }
+    },
+   {
+      "ranger-yarn-plugin-properties": {
+        "properties": {
+          "ranger-yarn-plugin-enabled": "Yes",
+           "policy_user":"{{policy_user}}"
+          }
+      }
+    }
+    ,
+    {
+     "ranger-yarn-audit":{
+        "properties": {
+          "xasecure.audit.is.enabled": "false",
+          "xasecure.audit.destination.solr":"false",
+          "xasecure.audit.destination.hdfs":"false"
+        }
+      }
+    }
+{% endif %}
+{% if groups['kafka'] is defined %}
+    ,
+    {
+      "ranger-kafka-plugin-properties": {
+        "properties" : {
+          "ranger-kafka-plugin-enabled" : "yes",
+          "REPOSITORY_CONFIG_USERNAME" : "kafka",
+          "policy_user": "{{policy_user}}"
+        }
+      }
+    }
+{% endif %}
+{% if groups['atlas'] is defined %}
+    ,
+    {
+      "ranger-atlas-plugin-properties": {
+        "properties" : {
+           "ranger-atlas-plugin-enabled" : "yes",
+           "policy_user": "{{policy_user}}"
+        }
+      }
+    }
+{% endif %}
+{% if groups['knox'] is defined %}
+    ,
+    {
+      "ranger-knox-plugin-properties": {
+        "properties" : {
+           "ranger-knox-plugin-enabled" : "yes",
+           "policy_user": "{{policy_user}}"
+        }
+      }
+    }
+{% endif %}
+{% if groups['hive'] is defined and groups['hive']|length > 0 %}
+    ,
+    {
+      "ranger-hive-audit": {
+        "properties" : {
+          "xasecure.audit.is.enabled":"false",
+          "xasecure.audit.destination.hdfs": "false",
+          "xasecure.audit.destination.solr" : "false"
+        }
+      }
+    }
+{% endif %}
+{% if groups['hbasemaster'] is defined and groups['hbasemaster']|length > 0 %}
+    ,
+    {
+      "ranger-hbase-plugin-properties": {
+        "properties":
+          {
+          "ranger-hbase-plugin-enabled": "Yes",
+           "policy_user":"{{policy_user}}"
+        }
+      }
+    }
+    ,
+    {
+      "ranger-hbase-audit":{
+        "properties": {
+          "xasecure.audit.is.enabled":"false",
+          "xasecure.audit.destination.solr":"false",
+          "xasecure.audit.destination.hdfs":"false"
+        }
+      }
+    }
+{% endif %}
+{% endif %}
+{% if groups['kdcserver'] is defined and groups['kdcserver']|length > 0 %}
+    ,
+    {
+      "kerberos-env": {
+        "properties": {
+          "realm": "{{KDC_REALM}}",
+          "encryption_types": "aes des3-cbc-sha1",
+          "kdc_type": "mit-kdc",
+          "manage_identities": true,
+          "install_packages": false,
+          "kdc_hosts": "{{hostvars[groups['kdcserver'][0]]['ansible_fqdn']|default('')}}",
+          "admin_server_host": "{{hostvars[groups['kdcserver'][0]]['ansible_fqdn']|default('')}}",
+          "ldap_url": "",
+          "container_dn": ""
+        }
+      }
+    }
+    ,
+    {
+      "krb5-conf": {
+        "properties" : {
+          "domains" : "{{KDC_DOMAIN}}",
+          "manage_krb5_conf" : "true"
+        }
+      }
+    }
+{% endif %}
+  ]
+}

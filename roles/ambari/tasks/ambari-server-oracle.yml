@@ -1,0 +1,15 @@
+---
+- block:
+    - debug: msg="{{AMBARI_JAVA_HOME}}"
+    - debug: msg="{{AMBARI_DB_PASSWORD}}"
+    - debug: msg="{{AMBARI_DB_PASSWORD}}"
+    - debug: msg="{{db_info['ambari']['db_name']}}"
+    - debug: msg="{{db_info['ambari']['db_user']}}"
+
+    - name: setup ambari-server with oracle
+      shell: ambari-server setup -g -s -j "{{AMBARI_JAVA_HOME}}" --database=oracle --databaseport=1521 --databasehost="{{ORACLE_HOSTNAME}}" --databasename="{{db_info['ambari']['db_name']}}" --databaseusername="{{db_info['ambari']['db_user']}}" --databasepassword="{{AMBARI_DB_PASSWORD}}"
+      #no_log: "{{ENABLE_LOG}}"
+
+    - name: setup ambari-server with oracle
+      shell: ambari-server setup --jdbc-driver=/usr/share/java/ojdbc7.jar --jdbc-db=oracle
+      #no_log: "{{ENABLE_LOG}}"

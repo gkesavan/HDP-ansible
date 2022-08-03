@@ -1,0 +1,19 @@
+---
+- block: 
+    - name: update oracle jdbc jar
+      copy: src=ojdbc7.jar
+            dest=/usr/share/java/ojdbc7.jar force=yes
+  when: ORACLE_HOSTNAME is defined and upgrade_jdbc
+  tags: upgrade_jdbc
+
+- block: 
+    - name: update mysql connector jdbc
+      copy: src=mysql-connector-java-5.1.39.jar
+            dest=/usr/share/java/mysql-connector-java-5.1.39.jar
+    
+    - name: link mysql connector jdbc
+      file: src=/usr/share/java/mysql-connector-java-5.1.39.jar
+            dest=/usr/share/java/mysql-connector-java.jar
+            state=link force=yes
+  when: upgrade_jdbc and groups['mysql'] is defined and groups['mysql']|length > 0 and inventory_hostname in groups['ambari_agent']
+  tags: upgrade_jdbc

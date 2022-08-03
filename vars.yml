@@ -1,0 +1,79 @@
+---
+################ CLUSTER  CONFIGURATION ################
+topology_info_location: "/etc/robin/conf"
+topology_script_tmpl_file: "topology_script.py"
+topology_script_file: "{{topology_info_location}}/topology_script.py"
+CURL: "curl -u admin:admin -H 'X-Requested-By:ambari'"
+HDP_REPO_FILE: "{{inventory_dir}}/HDP.repo"
+HDP_UTILS_REPO_FILE: "{{inventory_dir}}/HDP_utils.repo"
+RANGER_ADMIN_PASSWORD: "ranger_admin1"
+RANGERUSERSYNC_USER_PASSWORD: "{{ RANGER_ADMIN_PASSWORD }}"
+RANGERTAGSYNC_USER_PASSWORD: "{{ RANGER_ADMIN_PASSWORD }}"
+KEYADMIN_USER_PASSWORD: "{{ RANGER_ADMIN_PASSWORD }}"
+HDP_MAJOR_VERSION: "3.1"
+HDP_STACK_VERSION: "3.1.0.0"
+HDP_UTILS_VERSION: "1.1.0.22"
+HDP_BASEURL: "http://public-repo-1.hortonworks.com/HDP/centos7/3.x/updates/{{HDP_STACK_VERSION}}"
+#HDP_UTILS_BASEURL: "http://public-repo-1.hortonworks.com/HDP-UTILS-1.1.0.21/repos/centos7/HDP-UTILS-{{HDP_UTILS_VERSION}}"
+HDP_UTILS_BASEURL: "http://public-repo-1.hortonworks.com/HDP-UTILS-1.1.0.21/repos/centos7"
+AMBARI_REPO: "http://public-repo-1.hortonworks.com/ambari/centos7/2.x/updates/2.7.3.0"
+OVERRIDE_REPOS: true
+ENABLE_LOG: true
+
+############## vars used across roles ################
+# defaults file for kdc
+KDC_SERVER: "{{hostvars[groups['kdcserver'][0]]['ansible_fqdn']}}"
+KDC_REALM: "{{kdc_params.kdc_realm}}"
+KDC_DOMAIN: "{{kdc_params.kdc_domain}}"
+KDC_ADMIN_PASSWORD: "{{kdc_params.kdc_admin_password}}"
+KDC_MASTER_KEY_NAME: "{{kdc_params.kdc_master_key_name}}"
+KDC_MASTER_KEY: "{{kdc_params.kdc_master_key}}"
+KDC_PRINCIPAL: "{{kdc_params.kdc_principal}}"
+start_all_sh: "{{inventory_dir}}/start_all.sh"
+reload_all_sh: "{{inventory_dir}}/reload_all.sh"
+stop_all_sh: "{{inventory_dir}}/stop_all.sh"
+AARGS: ""
+APRTO: "http"
+APORT: "8080"
+SARGS: ""
+
+################ SSL CONFIGURATION ####################
+SSL_C: "US"
+SSL_ST: "California"
+SSL_L: "San Jose"
+SSL_O: "Robin Systems"
+SSL_OU: "Solution Architecture"
+SSL_EM: "support@robinsystems.com"
+crt_dir: "{{inventory_dir}}"
+single_crt: true
+crt_list:
+  - "star_robinsystems_com.crt"
+  - "star_robinsystems_com.key"
+
+########## AMBARI CONFIGURATION #######################
+# To reset ambari setup and mysql ambari db schema
+services_password: "passw0rd"
+AMBARI_PASSWORD: "admin"
+AMBARI_USER: "admin"
+keytab_dir: /etc/security/keytabs
+
+######### Enable or Disable Kerberos authentication ####
+use_kerberos: false
+configure_kdc: false
+### Enable or Disable SSL for HDP services #############
+# This setting will come from the cluster info
+# use_ssl: false
+######### TO reset Ambari server setup #################
+reset_ambari: true
+######### TO reset Ambari Mysql Database ###############
+reset_mysql: true
+######### TO install/upgrade mysql jdbc jar ############
+upgrade_jdbc: true
+######### TO install jce policy jar for oracle jdk #####
+install_jce: false
+######### TO Enable or Disable using Ranger ############
+stop_all_services: false
+topology: "custom"
+single: false
+hdp_repo_api_url: "api/v1/stacks/HDP/versions/{{HDP_MAJOR_VERSION}}/operating_systems/redhat7/repositories/HDP-{{HDP_MAJOR_VERSION}}"
+hdp_utils_repo_api_url: "api/v1/stacks/HDP/versions/{{HDP_MAJOR_VERSION}}/operating_systems/redhat7/repositories/HDP-UTILS-{{HDP_UTILS_VERSION}}"

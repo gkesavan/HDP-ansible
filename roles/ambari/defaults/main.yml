@@ -1,0 +1,109 @@
+---
+ name_dir: "{{ hostvars[groups['namenode'][0]].data_pool | default('/hadoop/nn')}}"
+ data_dir: "{{ hostvars[groups['datanode'][0]].data_pool | default('/hadoop/dn')}}"
+ yarn_local_dir: "{{ hostvars[groups['datanode'][0]].local_pool | default('/hadoop/yarn')}}"
+ zk_data_dir: "{{ hostvars[groups['zookeeper'][0]].data_pool | default('/zookeeper/data')}}"
+ edit_dir: "{{ hostvars[groups['zookeeper'][0]].data_pool | default('/zookeeper/jn')}}"
+ hbase_tmp_dir: "{{ hostvars[groups['datanode'][0]].local_pool | default('/hbase/tmp')}}"
+ oozie_data_dir: "{{hostvars[groups['ambari_server'][0]].data_pool| default('/oozie/data')}}"
+
+ AMBARI_JAVA_HOME: /usr/lib/jvm/java-1.8.0-openjdk
+ JCE_LOCATION: "{{AMBARI_JAVA_HOME}}/jre/lib/security"
+ CLUSTER_NAME: robin
+ start_all: "{{inventory_dir}}/start_all.sh"
+ startall: false
+ stopall: false
+ quiesce: false
+ unquiesce: false
+ FS_NAME: robin
+ blueprint: "{{inventory_dir}}/blueprint.json"
+ cluster_template: "{{inventory_dir}}/cluster-template.json"
+ grow_template: "{{inventory_dir}}/grow-template.json"
+ kdc_credential: "{{inventory_dir}}/kdc_credential.json"
+
+
+ AMBARI_SERVER: "{{hostvars[groups['ambari_server'][0]]['ansible_fqdn']}}"
+ OOZIE_HOST: "{{hostvars[groups['ambari_server'][0]]['ansible_fqdn']}}"
+ EDGENODE: "{{hostvars[groups['edgenode'][0]]['ansible_fqdn']}}"
+ MYSQL_SERVER: "{{hostvars[groups['mysql'][0]]['ansible_fqdn']}}"
+ ADD_DATANODE: false
+ ADD_NODEMANAGER: false
+ ADD_KAFKA: false
+ ADD_EDGENODE: false
+ UPDATE_RACK_INFO: false
+ CHECK_STALE_CONFIGS: true
+ mysql_root_user: root
+ mysql_ambari_password: ambari
+ mysql_ambari_user: ambari
+ mysql_oozie_user: oozie
+ mysql_oozie_password: oozie
+ mysql_oozie_dbname: oozie
+ mysql_hive_user: hive
+ mysql_hive_password: hive
+ mysql_ranger_audit_password: ranger
+ mysql_ranger_password: ranger
+ mysql_ranger_kms_password: kms
+ AMBARI_SERVER_PORT: "8080"
+ AMBARI_SERVER_SSL_PORT: "8443"
+ POSTGRESQL_PORT: "5432"
+ MYSQL_PORT: "3306"
+ log_cleanup: false
+
+ SERVICE_INSTALLED:
+   ServiceInfo:
+     state: INSTALLED
+
+ SERVICE_STARTED:
+   ServiceInfo:
+     state: STARTED
+
+ import_psql_data: false
+
+ DATANODE_SERVICES:
+     - METRICS_MONITOR
+     - DATANODE
+
+ ams_user: "{{hadoop_users[0]['users']['ams_user']}}"
+ smoketest_user: "{{hadoop_users[0]['users']['smoketest_user']}}"
+ hadoop_group: "{{hadoop_users[0]['group']}}"
+ zookeeper_user: "{{hadoop_users[0]['users']['zookeeper_user']}}"
+ yarn_user: "{{hadoop_users[0]['users']['yarn_user']}}"
+ yarn_ats_user: "{{hadoop_users[0]['users']['yarn_ats_user']}}"
+ tez_user: "{{hadoop_users[0]['users']['tez_user']}}"
+ ranger_user: "{{ranger_users[0]['users']['ranger_user']}}"
+ ranger_group: "{{ranger_users[0]['group']}}"
+ policy_user: "{{ranger_users[0]['users']['policy_user']}}"
+ kms_user: "{{kms_users[0]['users']['kms_user']}}"
+ kms_group: "{{kms_users[0]['group']}}"
+ oozie_user: "{{hadoop_users[0]['users']['oozie_user']}}"
+ hive_user: "{{hadoop_users[0]['users']['hive_user']}}"
+ hcat_user: "{{hadoop_users[0]['users']['hcat_user']}}"
+ webhcat_user: "{{hadoop_users[0]['users']['webhcat_user']}}"
+ hbase_user: "{{hadoop_users[0]['users']['hbase_user']}}"
+ hdfs_user: "{{hadoop_users[0]['users']['hdfs_user']}}"
+ mapred_user: "{{hadoop_users[0]['users']['mapred_user']}}"
+ kafka_user: "{{hadoop_users[0]['users']['kafka_user']}}"
+ knox_user: "{{knox_users[0]['users']['knox_user']}}"
+ knox_group: "{{knox_users[0]['group']}}"
+ infrasolr_user: "{{hadoop_users[0]['users']['infrasolr_user']}}"
+ atlas_user: "{{hadoop_users[0]['users']['atlas_user']}}"
+ spark_user: "{{spark_users[0]['users']['spark_user']}}"
+ spark_group: "{{spark_users[0]['group']}}"
+ zeppelin_user: "{{zeppelin_users[0]['users']['zeppelin_user']}}"
+ zeppelin_group: "{{zeppelin_users[0]['group']}}"
+
+ #yarn configuration
+ yarn_scheduler_maximum_allocation_mb: 2048
+ yarn_scheduler_maximum_allocation_vcores: 2
+
+ # hdfs configuration
+ # no unit for the hadoop_heap as ambari appends m to the value passed
+ hadoop_heap: 1000
+ dtnode_heap: 2048m
+ namenode_heap: 1024m
+ namenode_opt_newsize: 128m
+ namenode_opt_maxnewsize: 128m
+ namenode_opt_maxpermsize: 256m
+ namenode_opt_permsize: 256m
+ #zk configuration
+ zk_server_heapsize: 2000m

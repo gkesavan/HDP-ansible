@@ -1,0 +1,110 @@
+#
+# Copyright 2011 The Apache Software Foundation
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+#Thu Feb 23 07:58:34 PST 2017
+ulimit.open.files=10000
+api.authenticate=true
+server.persistence.type=remote
+jdk1.8.jcpol-url=http://public-repo-1.hortonworks.com/ARTIFACTS/jce_policy-8.zip
+jdk1.8.url=http://public-repo-1.hortonworks.com/ARTIFACTS/jdk-8u60-linux-x64.tar.gz
+java.home={{AMBARI_JAVA_HOME}}
+server.jdbc.hostname={{MYSQL_SERVER}}
+shared.resources.dir=/usr/lib/ambari-server/lib/ambari_commons/resources
+jdk.download.supported=true
+resources.dir=/var/lib/ambari-server/resources
+custom.action.definitions=/var/lib/ambari-server/resources/custom_action_definitions
+views.request.connect.timeout.millis=5000
+jdk1.7.desc=Oracle JDK 1.7 + Java Cryptography Extension (JCE) Policy Files 7
+server.jdbc.driver=com.mysql.jdbc.Driver
+security.server.keys_dir=/var/lib/ambari-server/keys
+server.jdbc.rca.user.name=ambari
+webapp.dir=/usr/lib/ambari-server/web
+server.os_family=redhat6
+server.jdbc.user.passwd=/etc/ambari-server/conf/password.dat
+server.execution.scheduler.isClustered=false
+views.ambari.request.connect.timeout.millis=5000
+server.jdbc.database=mysql
+server.jdbc.database_name=ambari
+server.jdbc.rca.url=jdbc:mysql://{{MYSQL_SERVER}}:3306/ambari
+bootstrap.script=/usr/lib/python2.6/site-packages/ambari_server/bootstrap.py
+server.version.file=/var/lib/ambari-server/resources/version
+jdk1.8.dest-file=jdk-8u60-linux-x64.tar.gz
+server.task.timeout=1200
+user.inactivity.timeout.role.readonly.default=0
+jdk.name=jdk-8u60-linux-x64.tar.gz
+java.releases=jdk1.8,jdk1.7
+recommendations.dir=/var/run/ambari-server/stack-recommendations
+agent.stack.retry.tries=5
+server.os_type=centos6
+server.execution.scheduler.maxDbConnections=5
+rolling.upgrade.skip.packages.prefixes=
+jdk1.8.home=/usr/jdk64/
+jdk1.7.home=/usr/jdk64/
+agent.task.timeout=900
+bootstrap.setup_agent.script=/usr/lib/python2.6/site-packages/ambari_server/setupAgent.py
+server.jdbc.rca.driver=com.mysql.jdbc.Driver
+jdk1.7.dest-file=jdk-7u67-linux-x64.tar.gz
+agent.package.install.task.timeout=1800
+server.jdbc.port=3306
+recovery.type=AUTO_START
+http.strict-transport-security=max-age=31536000
+common.services.path=/var/lib/ambari-server/resources/common-services
+agent.threadpool.size.max=25
+ambari.python.wrap=ambari-python-wrap
+skip.service.checks=false
+rolling.upgrade.min.stack=HDP-2.2
+bootstrap.dir=/var/run/ambari-server/bootstrap
+jdk1.8.desc=Oracle JDK 1.8 + Java Cryptography Extension (JCE) Policy Files 8
+server.jdbc.rca.user.passwd=/etc/ambari-server/conf/password.dat
+jdk1.7.re=(jdk.*)/jre
+metadata.path=/var/lib/ambari-server/resources/stacks
+jdk1.8.jcpol-file=jce_policy-8.zip
+server.execution.scheduler.misfire.toleration.minutes=480
+stackadvisor.script=/var/lib/ambari-server/resources/scripts/stack_advisor.py
+http.x-xss-protection=1; mode=block
+server.http.session.inactive_timeout=1800
+server.connection.max.idle.millis=900000
+views.http.strict-transport-security=max-age=31536000
+views.http.x-frame-options=SAMEORIGIN
+http.x-frame-options=DENY
+jce.download.supported=true
+recovery.lifetime_max_count=1024
+ambari-server.user=root
+jdk1.7.url=http://public-repo-1.hortonworks.com/ARTIFACTS/jdk-7u67-linux-x64.tar.gz
+server.jdbc.user.name=ambari
+rolling.upgrade.max.stack=
+server.jdbc.postgres.schema=ambari
+recovery.enabled_components=DATANODE, HDFS_CLIENT, JOURNALNODE, NAMENODE, ZKFC, APP_TIMELINE_SERVER, NODEMANAGER, RESOURCEMANAGER, YARN_CLIENT,HBASE_CLIENT, HBASE_MASTER, HBASE_REGIONSERVER, HISTORYSERVER, MAPREDUCE2_CLIENT, ZOOKEEPER_CLIENT, ZOOKEEPER_SERVER, AMBARI_METRICS, METRICS_COLLECTOR, METRICS_MONITOR, RANGER_ADMIN, RANGER_KMS_SERVER, RANGER_USERSYNC, HIVE_CLIENT, OOZIE_CLIENT, HCAT, HIVE_SERVER, HIVE_METASTORE, WEBHCAT_SERVER, OOZIE_SERVER, SPARK_JOBHISTORYSERVER, TEZ_CLIENT, SPARK_CLIENT
+user.inactivity.timeout.default=0
+agent.stack.retry.on_repo_unavailability=false
+views.request.read.timeout.millis=10000
+jdk1.7.jcpol-file=UnlimitedJCEPolicyJDK7.zip
+server.tmp.dir=/var/lib/ambari-server/data/tmp
+server.execution.scheduler.maxThreads=5
+server.jdbc.url=jdbc:mysql://{{MYSQL_SERVER}}:3306/ambari
+server.fqdn.service.url=http://169.254.169.254/latest/meta-data/public-hostname
+views.http.x-xss-protection=1; mode=block
+views.ambari.request.read.timeout.millis=10000
+server.stages.parallel=true
+kerberos.keytab.cache.dir=/var/lib/ambari-server/data/cache
+jdk1.8.re=(jdk.*)/jre
+jce.name=jce_policy-8.zip
+client.threadpool.size.max=25
+jdk1.7.jcpol-url=http://public-repo-1.hortonworks.com/ARTIFACTS/UnlimitedJCEPolicyJDK7.zip
